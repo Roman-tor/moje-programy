@@ -1,0 +1,2053 @@
+00000h                                                           ; ZAPIS FLASH SST39SFxxx /128kB do 512kB/ umieszczonej w plytce FLASH V2!
+00000h                                                           ; FD E1..E3..E5..E9 zajete jako instrukcje Z80 ! wolne E2, E4, E6, E7, E8
+00000h            HILO:                 EQU       23BH           ;  w MONITORze CA80
+00000h            PRINT:                EQU       01D4H          ; wysw. komunikatu /CA80/ wg (HL), koniec FF
+00000h            PARAM:                EQU       01F4H          ; pobiera bajty do hl, podac PWYS
+00000h            EXPR:                 EQU       0213H          ; pobranie liczb szesnastkowych na stos
+00000h            LADR:                 EQU       20H            ; LADR - wyswietlenie rej. HL w postaci HEX
+00000h            LBYTE:                EQU       18H            ; LBYTE - wyswietlenie rej. A w postaci HEX
+00000h            KO3:                  EQU       0A23H          ; "Error" z CA80
+00000h            ERR:                  EQU       0A23H          ; tekst "Err" ca80
+00000h            CLR:                  EQU       10H            ; CLR - kasowanie wyswietlacza
+00000h            CLR1:                 EQU       11H            ; CLR1 - kasowanie wyswietlacza bez zmiany PWYS
+00000h            TI:                   EQU       7              ; TI - pobranie znaku z echem na CA80
+00000h            TI1:                  EQU       8              ; j.w. lecz bez ustawiania PWYSW
+00000h            PWYS:                 EQU       0FFF6H         ; PWYS
+00000h                                                           ;USPWYS:    EQU 28h       ; ustawienie paramet. wyswietlania
+00000h            CLR_BUF:              EQU       0CA0H          ; zerowanie bufora z kalkulatora CA80
+00000h            CO:                   EQU       01E0H          ; wyswietlenie cyfry szesnastkowej umieszczonej w rej. C w/g PWYS
+00000h            CSTS:                 EQU       0FFC3H         ; czy klaw. wcisniety ?
+00000h            CI:                   EQU       0FFC6H         ; czekanie na puszczenie klawisza a potem na wcisniec
+00000h                                                           ;NMIU:      EQU 0FFCCh    ; obsluga przerwania niemaskowalnego uzytkownika
+00000h            CIM:                  EQU       184H           ; jak CSTS
+00000h            PLEW:                 EQU       0C56H          ; przesuniecie bufora w lewo o 1/CA88
+00000h            CYF0:                 EQU       0FFF7H         ; wysw. cyfry na pozycji 0 wyswietlacza CA80
+00000h            CYF1:                 EQU       0FFF8H         ; wysw. cyfry na pozycji 1
+00000h            CYF2:                 EQU       0FFF9H
+00000h            CYF3:                 EQU       0FFFAH
+00000h            CYF4:                 EQU       0FFFBH
+00000h            CYF5:                 EQU       0FFFCH
+00000h            CYF6:                 EQU       0FFFDH
+00000h            CYF7:                 EQU       0FFFEH
+00000h            TSIED:                EQU       0318H          ; tabl. zawieraj. kody 7-segm. cyfr szesnast.dla potrzeb wyswietl.
+00000h            ADR5:                 EQU       7555H          ; konfiguracja dla SST39FSxxx  /by ZEGAR Flash/
+00000h            ADRA:                 EQU       7AAAH          ; konfiguracja j.w.
+00000h            FL:                   EQU       6000H          ; adres pamieci FLASH na plytce  j.w.
+00000h            BUFOR:                EQU       5000H          ; poczatek bufora w RAM
+00000h            SEKT:                 EQU       BUFOR+0FFDH    ; numer sektora - ustawiany przez (LS373), chodzi o najstarsza cyfre 5
+00000h            DL_SEKT:              EQU       0FFFH          ; dlugosc sektora 4 kB - koniec na FFFh
+00000h            PR_CA:                EQU       0FE30H         ; tu beda zapisywane odczytane numery programow / 1,2 ...itd/ - na 144 programow
+00000h            FL_DANE:              EQU       0FEC0H         ; tu adres zapisu do FLASH SST 39xxx   ; moze byc np. 5abc
+00000h            NR_SEKT:              EQU       FL_DANE-1      ; FEBF
+00000h            SEKT_FL:              EQU       FL_DANE-2      ; nr sekt. podczas szuk. dlug. programu - FEBE
+00000h            SEKT_P:               EQU       FL_DANE+4      ; tu aktualny nr sektora - FEC4
+00000h            R_OD:                 EQU       FL_DANE+5      ; pocz. programu w CA - FED5-FEC6
+00000h            DL_ZAP:               EQU       R_OD+2         ; dlugosc zapisu - ile bajtow - FEC7-FEC8
+00000h            R_DO:                 EQU       R_OD+4         ; koniec programu w CA - FEC9-FECA
+00000h            BUF_ADR:              EQU       DL_ZAP+6       ; 5. bajtow w RAM CA80 na adres FLASH -> FECC
+00000h            P_PR_FL:              EQU       DL_ZAP+11      ; FED2 -pocz. prog. w pam. FLASH podczas zap. nr programu
+00000h            SU_CA:                EQU       P_PR_FL+2      ; przechowanie sumy kontrolnej programu z CA
+00000h            MAR_PR:               EQU       0FDE4H         ; marker pocz. programu FD E4
+00000h            MAR_NAZ:              EQU       0DDE2H         ; marker pocz. nazwy DD E2, moze byc inny, np. FD E4
+00000h                                                           ; LCD
+00000h            L1:                   EQU       80H            ; pocz. 1. linii LCD
+00000h            L2:                   EQU       0C0H           ; pocz. 2. linii
+00000h            L3:                   EQU       94H            ; pocz. 3. linii
+00000h            L4:                   EQU       0D4H           ; pocz. 4. linii
+00000h            ILE_CYF:              EQU       0FEFCH         ; ile cyfr wywietlac na CA80
+00000h            POZ_WYS:              EQU       ILE_CYF+1      ; 0FEFDh
+00000h            POZ_CYF:              EQU       ILE_CYF+2      ; 0FEFEh ; tu akt. pozycja CYF /od FFF7 do max FFFE /
+00000h            NR_L:                 EQU       0FEEAH         ; tu aktualnie wyswiet. nr linii
+00000h            PR_ILE:               EQU       0FE1BH         ; ilosc znalezionych programow
+00000h            NR_PR:                EQU       PR_ILE+1       ; tu nr programu podczas szukania
+00000h            INSTR:                EQU       0E8H           ; INSTRUKCJA LCD
+00000h            DANA:                 EQU       0E9H           ; DANA
+00000h            LCD_RDR:              EQU       0EBH           ; odczyt pozycji kursora
+00000h            LCD_BUSY:             EQU       0EAH           ; odczyt
+00000h                                                           ;===
+00000h                                                           ; ; format pliku z nr i nazwama programu w pamieci EEPROM/FLASH /przyklad/:
+00000h                                                           ; FD E4 pocz. programu
+00000h                                                           ; 01 - nr programu
+00000h                                                           ; 00 C0 ; dwa bajty - pocz. programu w RAM CA80 - tu od C000h
+00000h                                                           ; 31 66 FF.. .. ..  - nasz program
+00000h                                                           ; wewnatrz programu nazwa, po DD E2
+00000h                                                           ; FD E4 marker konca i pocz. nastepnego prog.
+00000h                                                           ; 02 .....program nr 2
+00000h                                                           ; 00 D0  ; pocz. programu w CA80 - od D000h
+00000h                                                           ; 21 11 22 .. .. ..  program
+00000h                                                           ; FD E4 nastepny prog.
+00000h                                                           ; 03 ..... itd
+00000h                                                           ;
+00000h                                                           ; FD E4 FF  - koniec obszaru z numerami, nazwami programow
+00000h                                                           ; V. ..DD_1 - zmiana: SEKT_P tylko przy zlec. 7
+00000h                                                           ; ...3 lipca dodalem FLASH 2 z mozliwoscia zapisu OBSZARu
+00000h                                                           ; E1 .. zmiana JR Z, xx  .. JR linia 1097
+00000h                                            
+00000h                                  ORG       0C000H         ; program testujacy dla pracy krokowej - MIK 05 str. 187
+0C000h            ZAP_FL:                         
+0C000h 3166FF                           LD        SP,0FF66H
+0C003h 2156C0                           LD        HL,OBS_PRZER   ; wlaczenie obslugi "F1" w NMI - dolny lewy
+0C006h 22C7FF                           LD        (CI+1),HL
+0C009h            EEP_1:                          
+0C009h D7                               RST       10H
+0C00Ah 80                               DEFB      80H            ; po powrocie, gdy wcis. klaw F1/Z/ , czysc wysw. CA
+0C00Bh 211CCC                           LD        HL,FLASH2
+0C00Eh CDD401                           CALL      PRINT          ; "FlaSh_2" na CA
+0C011h 71                               DEFB      71H
+0C012h CDD4C8                           CALL      INI_LCD
+0C015h CD7DC9                           CALL      WPIS_PLD       ; duze polskie znaki diakrytyczne
+0C018h CDE0CA                           CALL      WYSW_KOM_1
+0C01Bh CD0700                           CALL      TI             ; pobierz nr zlec.
+0C01Eh 17                               DEFB      17H
+0C01Fh 5F                               LD        E,A            ; nr zlecenia
+0C020h FE09                             CP        LCTX           ; czy "legalne"
+0C022h D233C0                           JP        NC,EREE        ; nielegalne
+0C025h D7                               RST       CLR
+0C026h 70                               DEFB      70H
+0C027h 2144C0                           LD        HL,CTBLX       ;tablica rozejsc
+0C02Ah 1600                             LD        D,0            ;w E numer zlecenia
+0C02Ch 19                               ADD       HL,DE
+0C02Dh 19                               ADD       HL,DE
+0C02Eh 5E                               LD        E,(HL)
+0C02Fh 23                               INC       HL
+0C030h 56                               LD        D,(HL)
+0C031h EB                               EX        DE,HL
+0C032h E9                               JP        (HL)           ;Pseudo CALL
+0C033h                                            
+0C033h            EREE:                           
+0C033h D7                               RST       CLR
+0C034h 80                               DEFB      80H
+0C035h 21230A                           LD        HL,ERR         ; "ERROR" na CA
+0C038h CDD401                           CALL      PRINT
+0C03Bh 53                               DEFB      53H
+0C03Ch CDC9C4                           CALL      OP_100MS
+0C03Fh 09                               DEFB      9
+0C040h D7                               RST       10H
+0C041h 53                               DEFB      53H
+0C042h 18BC                             JR        ZAP_FL
+0C044h                                            
+0C044h            CTBLX:                          
+0C044h 61C0                             DEFW      Z0             ; kasowanie CALEJ pamieci FLASH /lub sektora/ - przygotowanie do zapisu programow
+0C046h 38C1                             DEFW      Z1             ; szukaj pierwszy wolny nr programu
+0C048h 7EC1                             DEFW      Z2             ; przeglad FLASH
+0C04Ah FEC1                             DEFW      Z3             ; suma kontrolna FLASH, od 0 do konca programow FD E4 FF
+0C04Ch CBC2                             DEFW      Z4             ; Zapisz RAM [od][.][do][.][od_flash] do FLASH lub zapis programu
+0C04Eh C9C5                             DEFW      Z5             ; szukanie programu/nazwy, przepisanie programu [NR_prog] do CA
+0C050h 1EC7                             DEFW      Z6             ; przepisz FLASH do RAM
+0C052h E1C7                             DEFW      Z7             ; dlugosc programu, adresy w pam. FLASH, CA
+0C054h 70C3                             DEFW      INI_FL         ; inicjacja FLASH - wpis od 0000 FD E4 FF
+0C056h            LCTX:                 EQU       ($-CTBLX)/2    ; ilosc programow/zlecen
+0C056h                                            
+0C056h            OBS_PRZER:                                     ; obsluga, gdy wcisniemy klawisz F1 - powrot na pocz. programu
+0C056h CD8401                           CALL      CIM            ;jak CD F3 FF
+0C059h F5                               PUSH      AF
+0C05Ah FE17                             CP        17H            ; kod klaw. "F1"
+0C05Ch CA09C0                           JP        Z,EEP_1
+0C05Fh F1                               POP       AF
+0C060h C9                               RET       
+0C061h            Z0:                             
+0C061h            ERASE:                                         ; kasowanie CALEJ pamieci SST39EExxx "FF" 128 -512 kB
+0C061h 3E01                             LD        A,1            ;lub sektora /4 kB/
+0C063h D3E8                             OUT       (INSTR),A
+0C065h CD0FC9                           CALL      BUSY
+0C068h 3ED4                             LD        A,L4
+0C06Ah D3E8                             OUT       (INSTR),A
+0C06Ch 2178CC                           LD        HL,ERASE_FL    ;  "KASOWAC FLASH ?"
+0C06Fh CD18C9                           CALL      WYS_TEKST
+0C072h CD0FC9                           CALL      BUSY
+0C075h 218DCC                           LD        HL,KLAW_C      ; "KLAW. C CALA PAMIEC"
+0C078h CD18C9                           CALL      WYS_TEKST
+0C07Bh 21B7CC                           LD        HL,KLAW_2      ; "KLAW. 2 SEKT nr 0-7F",
+0C07Eh CD18C9                           CALL      WYS_TEKST
+0C081h CDC9C4                           CALL      OP_100MS
+0C084h 07                               DEFB      7              ; opozn. ok. 0,7 sek
+0C085h            ER12:                           
+0C085h 3E08                             LD        A,8            ; wylacz LCD
+0C087h D3E8                             OUT       (INSTR),A
+0C089h CDC9C4                           CALL      OP_100MS
+0C08Ch 07                               DEFB      7              ; opozn. ok. 0,7 sek
+0C08Dh 3E0C                             LD        A,0CH
+0C08Fh D3E8                             OUT       (INSTR),A
+0C091h CDC9C4                           CALL      OP_100MS
+0C094h 07                               DEFB      7
+0C095h CDC3FF                           CALL      CSTS           ;  wcis. klaw.
+0C098h FE02                             CP        2              ; czy klaw. 2 - kasuj tylko jeden sektor
+0C09Ah 2841                             JR        Z,WYB_SEKT
+0C09Ch FE0C                             CP        0CH            ; czy klaw. C
+0C09Eh 20E5                             JR        NZ,ER12
+0C0A0h                                                           ;jr er12
+0C0A0h                                            
+0C0A0h            ER13:                           
+0C0A0h 3E94                             LD        A,L3           ; linia 3.
+0C0A2h 0614                             LD        B,20           ; wszystkie znaki
+0C0A4h CDBCC8                           CALL      CLR_LCD_ZN     ;
+0C0A7h 21A2CC                           LD        HL,KLAW_C1
+0C0AAh CD18C9                           CALL      WYS_TEKST
+0C0ADh            ER131:                          
+0C0ADh CDC3FF                           CALL      CSTS
+0C0B0h FE10                             CP        10H            ; " G " ; powrot do Z0
+0C0B2h 28AD                             JR        Z,Z0
+0C0B4h FE0E                             CP        0EH            ; " E " ? - kasuj cala pamiec
+0C0B6h 20F5                             JR        NZ,ER131
+0C0B8h                                                           ;jr er131
+0C0B8h            ER132:                          
+0C0B8h CDC6C0                           CALL      ER11           ; kasuj cala pamiec
+0C0BBh 21FCCB                           LD        HL,ER_OK       ; "ERASE OK"  po skasowaniu
+0C0BEh CDD401                           CALL      PRINT
+0C0C1h 80                               DEFB      80H
+0C0C2h CF                               RST       8              ; CF
+0C0C3h C300C0                           JP        ZAP_FL
+0C0C6h                                                           ; KASOWANIE CALEJ PAMIECI !!!
+0C0C6h            ER11:                           
+0C0C6h 215575                           LD        HL,ADR5        ; HL - 7555h
+0C0C9h 11AA7A                           LD        DE,ADRA        ; DE - 7AAAh
+0C0CCh 3E55                             LD        A,55H
+0C0CEh 73                               LD        (HL),E         ; 1 cykl pod 7555 dana AA
+0C0CFh 12                               LD        (DE),A         ; 2 cykl pod 7AAA ->   55
+0C0D0h 3680                             LD        (HL),80H       ; 3 cykl pod 7555 ->   80
+0C0D2h 36AA                             LD        (HL),0AAH      ; 4 cykl po  7555 =>   AA
+0C0D4h 12                               LD        (DE),A         ; 5 cykl pod 7AAA ->   55
+0C0D5h 3610                             LD        (HL),10H       ; 6 cykl pod 7555 ->   10
+0C0D7h 060B                             LD        B,11           ; nota katalog. Tsce max 20ms
+0C0D9h            ER2:                            
+0C0D9h 76                               HALT                     ; 2 ms
+0C0DAh 10FD                             DJNZ      ER2
+0C0DCh C9                               RET       
+0C0DDh                                                           ; wcisnisnieto klaw. 2 - kasowanie jednego sektora
+0C0DDh            WYB_SEKT:                                      ; sektora FLASH 0-7F
+0C0DDh 3E80                             LD        A,L1
+0C0DFh 0614                             LD        B,20           ; tyle znakow skasowac na LCD
+0C0E1h CDBCC8                           CALL      CLR_LCD_ZN
+0C0E4h 76                               HALT      
+0C0E5h            WYB1A:                          
+0C0E5h D7                               RST       10H
+0C0E6h 80                               DEFB      80H
+0C0E7h 21F1CB                           LD        HL,NR_SECT     ;"nr.SEct" na CA
+0C0EAh CDD401                           CALL      PRINT
+0C0EDh 62                               DEFB      62H
+0C0EEh 3E80                             LD        A,L1
+0C0F0h D3E8                             OUT       (INSTR),A
+0C0F2h 2169CD                           LD        HL,SEKT_WYB    ; "podaj nr sektora" na LCD
+0C0F5h CD18C9                           CALL      WYS_TEKST
+0C0F8h 0E01                             LD        C,1            ; jeden parametr
+0C0FAh CD1302                           CALL      EXPR           ; pobierz na stos
+0C0FDh 20                               DEFB      20H
+0C0FEh C1                               POP       BC             ; C nr sektora
+0C0FFh 79                               LD        A,C
+0C100h FE80                             CP        80H            ; sektory 0 - 7F !!!
+0C102h 30E1                             JR        NC,WYB1A
+0C104h F5                               PUSH      AF             ; przechowaj
+0C105h CD17C1                           CALL      KAS_SEKT
+0C108h 21FCCB                           LD        HL,ER_OK       ; "ERASE OK" na CA80
+0C10Bh CDD401                           CALL      PRINT
+0C10Eh 80                               DEFB      80H
+0C10Fh CF                               RST       8              ; CF
+0C110h F1                               POP       AF
+0C111h DF                               RST       LBYTE          ; wysw. rej. A
+0C112h 20                               DEFB      20H
+0C113h CF                               RST       8              ; CF
+0C114h C3E5C0                           JP        WYB1A
+0C117h                                            
+0C117h            KAS_SEKT:                       
+0C117h 32FD5F                           LD        (SEKT),A       ; ustaw sektor - LS373 ! kasowanie 4 kB !
+0C11Ah F5                               PUSH      AF
+0C11Bh D9                               EXX                      ; chron rejestry
+0C11Ch 3E55                             LD        A,55H
+0C11Eh 215575                           LD        HL,ADR5        ; adres
+0C121h 11AA7A                           LD        DE,ADRA        ; adres
+0C124h 36AA                             LD        (HL),0AAH      ; 1. cykl - dana AA pod adres 7555
+0C126h 12                               LD        (DE),A         ; 2. cykl - dana 55 -> 7AAA
+0C127h 3680                             LD        (HL),80H       ; 3. cykl -dana 80 -> 7555
+0C129h 36AA                             LD        (HL),0AAH      ; 4. cykl -dana AA -> 7555
+0C12Bh 12                               LD        (DE),A         ; 5. cykl -dana 55 -> 7AAA
+0C12Ch 2660                             LD        H,60H          ; dowolny - A18..A12 w LS373- nota katalogowa
+0C12Eh 3630                             LD        (HL),30H       ; 6. cykl -dana 30 -> 6055
+0C130h 060F                             LD        B,0FH          ; op. ok. 32 ms
+0C132h            OP3:                            
+0C132h 76                               HALT                     ; 2 ms
+0C133h 10FD                             DJNZ      OP3            ; max 25 ms
+0C135h D9                               EXX       
+0C136h F1                               POP       AF             ; do wyswietlenia na CA
+0C137h C9                               RET       
+0C138h                                                           ;==
+0C138h            Z1:                                            ; szukaj pierwszy wolny numer programu
+0C138h CDAACB                           CALL      CLR_OB
+0C13Bh CDB6CB                           CALL      SZUK_NUMER     ; znajdz numery progr. i wpisz do RAM CA80
+0C13Eh                                                           ; sprawdz, ktory pierwszy wolny
+0C13Eh            NR_FREE:                                       ; ktory numer programu jest wolny oraz ile programow znaleziono
+0C13Eh 1E01                             LD        E,1            ; zaczynamy od 1/, moze byc 0
+0C140h            NR0:                            
+0C140h 7B                               LD        A,E            ; szukamy tego numeru od <PR_CA> FC-FC64
+0C141h 2130FE                           LD        HL,PR_CA       ; pocz. szukania
+0C144h 016400                           LD        BC,64H         ; koniec obszaru, numery prog. 1 do 99, FD, FE, FF to markery
+0C147h EDB1                             CPIR                     ; porownuje (HL) z A, HL+1, BC-1
+0C149h E252C1                           JP        PO,NR2
+0C14Ch 7B                               LD        A,E
+0C14Dh 3C                               INC       A
+0C14Eh 27                               DAA                      ; tu ograniczamy numery programów do liczb dziesietnych 1-99
+0C14Fh 5F                               LD        E,A            ; jeœli chcesz wiêcej, wykreœl DAA
+0C150h 18EE                             JR        NR0
+0C152h            NR2:                                           ; znaleziono nr nieuzywany - pierwszy wolny
+0C152h F5                               PUSH      AF             ; dla CA
+0C153h F5                               PUSH      AF             ; dla LCD
+0C154h 3ED4                             LD        A,L4
+0C156h D3E8                             OUT       (INSTR),A
+0C158h 2194CE                           LD        HL,NR_1WOL     ; tekst na LCD "pierwszy wolny nr " <rej.A>
+0C15Bh CD18C9                           CALL      WYS_TEKST      ; bez INC (IX) = przeskok na nastepna linie
+0C15Eh F1                               POP       AF
+0C15Fh CD55C9                           CALL      WYSW_A         ; na LCD
+0C162h            NR21:                           
+0C162h F1                               POP       AF
+0C163h 5F                               LD        E,A            ; zapamietanie do porownania
+0C164h DF                               RST       LBYTE          ; wysw. rej. A PWYS 20  wolny numer
+0C165h 20                               DEFB      20H
+0C166h 2155CC                           LD        HL,NR_FR       ; nrFree
+0C169h CDD401                           CALL      PRINT
+0C16Ch 62                               DEFB      62H
+0C16Dh 3E0F                             LD        A,0FH          ; kursor jako mrugajacy blok, dla zwrocenia uwagi
+0C16Fh D3E8                             OUT       (INSTR),A
+0C171h 76                               HALT      
+0C172h 3EE5                             LD        A,L4+17
+0C174h D3E8                             OUT       (INSTR),A
+0C176h CF                               RST       8              ; CF czekaj na klawisz
+0C177h 3E0E                             LD        A,0EH          ; kurosor jako belka
+0C179h D3E8                             OUT       (INSTR),A
+0C17Bh C309C0                           JP        EEP_1
+0C17Eh                                            
+0C17Eh            Z2:                                            ; przeglad FLASH  SST39SFxxx
+0C17Eh 3E01                             LD        A,1
+0C180h D3E8                             OUT       (INSTR),A      ; czysc LCD  ; D7 80
+0C182h CD0FC9                           CALL      BUSY
+0C185h 3ED4                             LD        A,L4
+0C187h D3E8                             OUT       (INSTR),A
+0C189h 21E2CD                           LD        HL,PRZEG
+0C18Ch CD18C9                           CALL      WYS_TEKST
+0C18Fh            P21:                            
+0C18Fh D7                               RST       10H            ; D7 czysc wysw. CA
+0C190h 40                               DEFB      40H
+0C191h CD49CA                           CALL      ZAP_FL39_OD    ; pobranie adr. /i kontrola/ pocz. przegladania
+0C194h 30F9                             JR        NC,P21         ; adres FL prawidlowy /dla 512 kB -max to 7.FFFF
+0C196h                                                           ;jr P21                       ; dla 128 kB - 1.FFFF, 256 kB - 3.FFFF
+0C196h                                                           ; adres OK
+0C196h            P22:                            
+0C196h 2ACFFE                           LD        HL,(BUF_ADR+2)
+0C199h E5                               PUSH      HL
+0C19Ah DDE1                             POP       IX             ; potrzebne do <SET_SEKT>
+0C19Ch 22C0FE                           LD        (FL_DANE),HL   ; przechowanie
+0C19Fh CD92C4                           CALL      SET_SEKT       ; ustaw sektor na podstawie adresu, adres moze byc 5. cyfrowy
+0C1A2h DDE5                             PUSH      IX
+0C1A4h E1                               POP       HL
+0C1A5h D7                               RST       10H            ; D7 czysc wysw. CA - CYF2
+0C1A6h 12                               DEFB      12H
+0C1A7h 181C                             JR        PU0
+0C1A9h                                            
+0C1A9h            P22A:                                          ;przy "cofaniu", przekracznie 0000 na FFFF - ustawienie adresu
+0C1A9h 7D                               LD        A,L
+0C1AAh FEFF                             CP        0FFH
+0C1ACh 2017                             JR        NZ,PU0
+0C1AEh 7C                               LD        A,H
+0C1AFh FE5F                             CP        5FH
+0C1B1h 2012                             JR        NZ,PU0
+0C1B3h 266F                             LD        H,6FH
+0C1B5h 3AC4FE                           LD        A,(SEKT_P)
+0C1B8h                                                           ;ld A, (SEKT)
+0C1B8h 3D                               DEC       A
+0C1B9h FEFF                             CP        0FFH
+0C1BBh 2002                             JR        NZ,P22B
+0C1BDh 3E7F                             LD        A,7FH          ; ostatni sektor /dla FLASH 512 kB, 1F - 128 kB, 3F - 256 kB
+0C1BFh            P22B:                           
+0C1BFh 32C4FE                           LD        (SEKT_P),A
+0C1C2h 32FD5F                           LD        (SEKT),A       ; ustaw adres  FLASH
+0C1C5h            PU0:                            
+0C1C5h E7                               RST       LADR           ; wysw. adresu poczatk.
+0C1C6h 43                               DEFB      43H
+0C1C7h 3AC4FE                           LD        A,(SEKT_P)     ; wysw. sektora i nadpisanie starszego polbajtu H
+0C1CAh                                                           ;ld A, (SEKT) ; **
+0C1CAh 32FD5F                           LD        (SEKT),A
+0C1CDh DF                               RST       LBYTE
+0C1CEh 26                               DEFB      26H
+0C1CFh 7E                               LD        A,(HL)         ; pobranie danej
+0C1D0h DF                               RST       LBYTE          ; wyswietlenie (HL)
+0C1D1h 20                               DEFB      20H
+0C1D2h CF                               RST       TI1            ; pobr. znaku
+0C1D3h 3808                             JR        C,PU1          ; wcisnieto CR / = /
+0C1D5h 2B                               DEC       HL             ; do tylu
+0C1D6h 28D1                             JR        Z,P22A         ; SU0     ; wcisnieto SPAC / . /
+0C1D8h 23                               INC       HL             ; odtworzenie HL
+0C1D9h FE10                             CP        10H            ;klaw. G - nowy adres
+0C1DBh 28B2                             JR        Z,P21
+0C1DDh                                                           ; wprowadzanie zakonczono klawiszem CR/=/, zwieksz adres
+0C1DDh            PU1:                            
+0C1DDh 23                               INC       HL             ; do przodu
+0C1DEh CDE3C1                           CALL      SPR_ADR_PRZ    ; sprawdz adres, czy koniec sektora - z FFF przeskok na 1000
+0C1E1h 18E2                             JR        PU0
+0C1E3h                                            
+0C1E3h            SPR_ADR_PRZ:                                   ; przeskok na nastepny sektor ?
+0C1E3h CB64                             BIT       4,H            ; bylo FFF a jest po INC IX 1000
+0C1E5h C8                               RET       Z              ; adres < od 1000
+0C1E6h                                                           ; adres FFF+1 , zmiana sektora na plytce FLASH, i IX=6000
+0C1E6h 3AC4FE                           LD        A,(SEKT_P)     ; pomocniczy adres
+0C1E9h                                                           ;ld A, (SEKT)
+0C1E9h 3C                               INC       A
+0C1EAh FE80                             CP        80H            ; 20h dla SST39_SF010 /128kB/, 40-...020 /256kB/, 80 -..40 /512 kB/
+0C1ECh 2001                             JR        NZ,SPR12
+0C1EEh            SPR12A:                         
+0C1EEh AF                               XOR       A              ; zaczynamy od sektora 0 /
+0C1EFh            SPR12:                          
+0C1EFh 32FD5F                           LD        (SEKT),A       ; wybranie sektora na plytce FLASH by ZEGAR
+0C1F2h 32C4FE                           LD        (SEKT_P),A
+0C1F5h FE7F                             CP        7FH
+0C1F7h CA08C6                           JP        Z,END_SZUK
+0C1FAh 210060                           LD        HL,FL          ; od poczatku - od 6000h
+0C1FDh C9                               RET       
+0C1FEh                                                           ;====
+0C1FEh            Z3:                                            ; suma kontrolna FLASH, od 0 do konca programow FD E4 FF
+0C1FEh 3E01                             LD        A,1
+0C200h D3E8                             OUT       (INSTR),A      ; czysc LCD
+0C202h 76                               HALT      
+0C203h 3E80                             LD        A,L1
+0C205h D3E8                             OUT       (INSTR),A
+0C207h 76                               HALT      
+0C208h 2104CF                           LD        HL,SUMA_OD     ; "SUMA 0-"
+0C20Bh CD18C9                           CALL      WYS_TEKST
+0C20Eh 00                               NOP       
+0C20Fh CD79C2                           CALL      SUMA_K
+0C212h 213DCC                           LD        HL,SUMA        ; "Su."
+0C215h CDD401                           CALL      PRINT
+0C218h 26                               DEFB      26H
+0C219h DDE5                             PUSH      IX
+0C21Bh E1                               POP       HL
+0C21Ch E7                               RST       20H            ; E7
+0C21Dh 42                               DEFB      42H
+0C21Eh 3E88                             LD        A,L1+8
+0C220h D3E8                             OUT       (INSTR),A
+0C222h 76                               HALT      
+0C223h FDE5                             PUSH      IY
+0C225h E1                               POP       HL             ; adres konca programow
+0C226h CD31C9                           CALL      WYS_ADR_LCD    ; wysw. HL
+0C229h 76                               HALT      
+0C22Ah 3E87                             LD        A,L1+7
+0C22Ch D3E8                             OUT       (INSTR),A
+0C22Eh 76                               HALT      
+0C22Fh 3AC4FE                           LD        A,(SEKT_P)     ; **
+0C232h                                                           ;ld A, (SEKT); nr sektora - koniec sumy kontrolnej
+0C232h CD55C9                           CALL      WYSW_A
+0C235h 76                               HALT      
+0C236h DDE5                             PUSH      IX
+0C238h E1                               POP       HL
+0C239h 3E90                             LD        A,L1+16
+0C23Bh D3E8                             OUT       (INSTR),A
+0C23Dh CD31C9                           CALL      WYS_ADR_LCD    ; wysw. sumy
+0C240h 3E7F                             LD        A,7FH
+0C242h 32FD5F                           LD        (SEKT),A       ; ostatni sektor
+0C245h DDE5                             PUSH      IX
+0C247h D1                               POP       DE
+0C248h 210CCF                           LD        HL,ZAPISANA    ; "ZAPISANA"
+0C24Bh CD18C9                           CALL      WYS_TEKST
+0C24Eh 2AFE6F                           LD        HL,(FL+0FFEH)  ; adres dwoch ostanich bajtow w pam. FLASH
+0C251h CD31C9                           CALL      WYS_ADR_LCD
+0C254h AF                               XOR       A              ; CY=0, wazne przy odejmowaniu  !!!
+0C255h ED52                             SBC       HL,DE
+0C257h 2810                             JR        Z,Z34
+0C259h                                                           ; sumy rozne
+0C259h 3ED4                             LD        A,L4
+0C25Bh D3E8                             OUT       (INSTR),A
+0C25Dh 76                               HALT      
+0C25Eh 21EFCE                           LD        HL,WP_SU_KO    ; "KL F4/W - WPISZ SUME"
+0C261h CD18C9                           CALL      WYS_TEKST
+0C264h 2152CC                           LD        HL,SU_NOK      ; "no"
+0C267h 1803                             JR        Z341
+0C269h            Z34:                                           ; sumy sie zgadzaja
+0C269h 2102CC                           LD        HL,EE_OK       ; "Ok"
+0C26Ch            Z341:                           
+0C26Ch CDD401                           CALL      PRINT
+0C26Fh 20                               DEFB      20H
+0C270h CF                               RST       8              ; CF czekaj na klawisz
+0C271h FE14                             CP        14H            ; klawisz F4/W wpisz sume policzona
+0C273h CCB9C2                           CALL      Z,WPISZ_SUME   ; wpisanie sumy obliczonej do pamieci pod 7FFFE-FF /dla 512 kB
+0C276h C309C0                           JP        EEP_1
+0C279h                                            
+0C279h            SUMA_K:                                        ; obl. sume kontrolna od 0 do konca programow FD E4 FF
+0C279h AF                               XOR       A              ; suma liczona wlacznie z FD, bez E2 FF
+0C27Ah DD210000                         LD        IX,0           ; w IX bedzie liczona suma: ADD IX, BC
+0C27Eh 32FD5F                           LD        (SEKT),A       ; ustaw adres FLASH
+0C281h 32C4FE                           LD        (SEKT_P),A
+0C284h            Z3A:                            
+0C284h 210060                           LD        HL,FL
+0C287h            Z31:                            
+0C287h 7E                               LD        A,(HL)
+0C288h 4F                               LD        C,A
+0C289h DD09                             ADD       IX,BC
+0C28Bh            Z3B:                            
+0C28Bh FEFD                             CP        0FDH
+0C28Dh F5                               PUSH      AF
+0C28Eh 23                               INC       HL
+0C28Fh 7C                               LD        A,H
+0C290h FE70                             CP        70H            ; koniec sektora ?
+0C292h 2012                             JR        NZ,Z33
+0C294h            Z32:                                           ; jesli koniec sektora lub koniec FLASH
+0C294h 3AC4FE                           LD        A,(SEKT_P)
+0C297h 3C                               INC       A
+0C298h 32FD5F                           LD        (SEKT),A
+0C29Bh 32C4FE                           LD        (SEKT_P),A
+0C29Eh 210060                           LD        HL,FL
+0C2A1h FE7F                             CP        7FH            ; koniec FLASH
+0C2A3h CA08C6                           JP        Z,END_SZUK     ;Z3A ; tylko koniec sektora
+0C2A6h            Z33:                            
+0C2A6h F1                               POP       AF
+0C2A7h 20DE                             JR        NZ,Z31
+0C2A9h 7E                               LD        A,(HL)
+0C2AAh FEE4                             CP        0E4H
+0C2ACh 20D9                             JR        NZ,Z31
+0C2AEh 23                               INC       HL
+0C2AFh 7E                               LD        A,(HL)
+0C2B0h 2B                               DEC       HL
+0C2B1h FEFF                             CP        0FFH           ; koniec programow
+0C2B3h 20D2                             JR        NZ,Z31
+0C2B5h E5                               PUSH      HL
+0C2B6h FDE1                             POP       IY             ; adres konca programow
+0C2B8h C9                               RET                      ; powrot z podprogramu obl. sumy kontr.
+0C2B9h                                            
+0C2B9h            WPISZ_SUME:                                    ; wpis sumy kontrolnej do pamieci
+0C2B9h 3E7F                             LD        A,7FH          ; ostatni sektor
+0C2BBh CD17C1                           CALL      KAS_SEKT       ; ld (SEKT), A
+0C2BEh 21FE6F                           LD        HL,FL+0FFEH
+0C2C1h CDC6CA                           CALL      SST_B_KEY      ; odblokowanie FLASH
+0C2C4h 73                               LD        (HL),E
+0C2C5h 23                               INC       HL
+0C2C6h CDC6CA                           CALL      SST_B_KEY
+0C2C9h 72                               LD        (HL),D
+0C2CAh C9                               RET       
+0C2CBh                                                           ;===
+0C2CBh            Z4:                                            ; kl. E - zapisz program [CAod][.][CAdo][.][nr_progamu] do FLASH
+0C2CBh                                                           ; kl. 7 - zapisz obszar [CAod][.][CAdo][.][od_flash] CA80 -> FLASH
+0C2CBh                                                           ; PRZED ZAPISEM OBSZARU MUSIMY SKASOWAC SEKTOR/SEKTORY !!!!, robi to podprogram <spr_sektFF>
+0C2CBh DD210060                         LD        IX,FL          ; na plytce FLASH = od 6000h !
+0C2CFh FD21C4FE                         LD        IY,SEKT_P      ; do zwiekszania sektora o 1 gdy przekroczymy adres  6FFF
+0C2D3h FD360000                         LD        (IY),0         ; zaczynamy od sektora 0
+0C2D7h CDD4C8                           CALL      INI_LCD
+0C2DAh 76                               HALT      
+0C2DBh 3E94                             LD        A,L3
+0C2DDh D3E8                             OUT       (INSTR),A
+0C2DFh 76                               HALT      
+0C2E0h 2195CD                           LD        HL,ZAP_PROGR
+0C2E3h CD18C9                           CALL      WYS_TEKST
+0C2E6h 76                               HALT      
+0C2E7h 3ED4                             LD        A,L4
+0C2E9h D3E8                             OUT       (INSTR),A
+0C2EBh 76                               HALT      
+0C2ECh 21AACD                           LD        HL,ZAP_OBSZ
+0C2EFh CD18C9                           CALL      WYS_TEKST
+0C2F2h            Z41:                            
+0C2F2h CD0700                           CALL      TI
+0C2F5h 20                               DEFB      20H
+0C2F6h FE0E                             CP        0EH            ; klawisz E
+0C2F8h CAC5C3                           JP        Z,PROGR        ; zapis programu [od] [do] [nr]
+0C2FBh FE07                             CP        7              ;
+0C2FDh 20F3                             JR        NZ,Z41
+0C2FFh                                                           ;jr Z41
+0C2FFh                                                           ;===
+0C2FFh            OBSZ:                                          ; zapisanie obszaru FLASH - SKASUJ SEKTOR, od ktorego chcesz zapisac obszar !
+0C2FFh 3E94                             LD        A,L3           ; pozycja
+0C301h 0614                             LD        B,20           ; ile skasowac
+0C303h CDBCC8                           CALL      CLR_LCD_ZN
+0C306h 2105CC                           LD        HL,ZAP_39SF    ; "ZAP.FLA.39"
+0C309h CDD401                           CALL      PRINT
+0C30Ch 80                               DEFB      80H
+0C30Dh CDC9C4                           CALL      OP_100MS
+0C310h 0F                               DEFB      15             ; opozn. ok. 1,5 sek
+0C311h D7                               RST       10H            ; D7 czysc wysw. CA
+0C312h 40                               DEFB      40H
+0C313h FDE5                             PUSH      IY             ; = FEC4 (FEC4)=0
+0C315h CD7DC4                           CALL      POB_ADR_CA     ; pobranie adresow [CA_OD] i [CA_DO]
+0C318h            ZAP1:                           
+0C318h CD49CA                           CALL      ZAP_FL39_OD    ; pobranie adresu
+0C31Bh 30FB                             JR        NC,ZAP1        ; adres FL prawidlowy /dla 512 kB -max to 7.FFFF
+0C31Dh                                                           ;jr zap1
+0C31Dh            ZAP2:                           
+0C31Dh FDE1                             POP       IY
+0C31Fh DD2ACFFE                         LD        IX,(BUF_ADR+2)
+0C323h DDE5                             PUSH      IX
+0C325h E1                               POP       HL
+0C326h 22C0FE                           LD        (FL_DANE),HL   ; przechowanie
+0C329h CD92C4                           CALL      SET_SEKT       ; ustaw sektor na podstawie adresu zapisu do FLASH
+0C32Ch CDEECA                           CALL      SPR_SEKTFF     ; sprawdz, czy sektor wolny /FF/
+0C32Fh 280D                             JR        Z,ZAP3         ; sektor zajety, podaj nowy adres
+0C331h E5                               PUSH      HL
+0C332h 2134CC                           LD        HL,SEKT_ERR
+0C335h CDD401                           CALL      PRINT
+0C338h 80                               DEFB      80H
+0C339h CDC9C4                           CALL      OP_100MS
+0C33Ch 05                               DEFB      5
+0C33Dh E1                               POP       HL
+0C33Eh            ZAP3:                           
+0C33Eh 2AC5FE                           LD        HL,(R_OD)      ; pocz. obszaru RAM do przepisania
+0C341h ED5BC9FE                         LD        DE,(R_DO)      ; koniec RAM do przepisania,  potrzebne do HILO
+0C345h            LICZ:                                          ; zapis FLASH
+0C345h 4E                               LD        C,(HL)         ; pobranie danej
+0C346h CDC6CA                           CALL      SST_B_KEY      ; odblokowanie FLASH
+0C349h DD7100                           LD        (IX+0),C       ; wpis do FLASH
+0C34Ch DD23                             INC       IX
+0C34Eh                                                           ; sprawdz czy koniec sektora - zmiana adr. z 6FFF na 7000
+0C34Eh DD7C                             LD        A,IXH
+0C350h FE70                             CP        70H
+0C352h 2003                             JR        NZ,LICZ2       ; jeszcze nie koniec sektora
+0C354h                                                           ; przeskocz na nastepny sektor
+0C354h CD66C4                           CALL      ADD_SEKT_IX
+0C357h            LICZ2:                          
+0C357h E7                               RST       20H            ; E7 wysw. HL
+0C358h 44                               DEFB      44H
+0C359h CD3B02                           CALL      HILO           ;  HL+1, HL = DE?
+0C35Ch 30E7                             JR        NC,LICZ        ; zapisuj dalej
+0C35Eh            LICZ3:                                         ; koniec zapisu - dopisz jeszcze FD E4 (FF) jako koniec programu
+0C35Eh CDB3C3                           CALL      SPR_END_SEKT
+0C361h            LICZ21:                         
+0C361h 0EFF                             LD        C,0FFH
+0C363h CDC6CA                           CALL      SST_B_KEY
+0C366h DD7100                           LD        (IX),C         ; na wszelki wypadek...FF jako ostatni bajt zapisu
+0C369h DD23                             INC       IX
+0C36Bh CDB3C3                           CALL      SPR_END_SEKT
+0C36Eh 1808                             JR        INI_FL1
+0C370h            INI_FL:                         
+0C370h AF                               XOR       A
+0C371h 32FD5F                           LD        (SEKT),A
+0C374h DD210060                         LD        IX,FL
+0C378h            INI_FL1:                        
+0C378h 0EFD                             LD        C,0FDH
+0C37Ah CDC6CA                           CALL      SST_B_KEY
+0C37Dh DD7100                           LD        (IX),C
+0C380h DD23                             INC       IX
+0C382h CDB3C3                           CALL      SPR_END_SEKT
+0C385h 0EE4                             LD        C,0E4H
+0C387h CDC6CA                           CALL      SST_B_KEY
+0C38Ah DD7100                           LD        (IX),C
+0C38Dh DD23                             INC       IX
+0C38Fh CDB3C3                           CALL      SPR_END_SEKT
+0C392h 0EFF                             LD        C,0FFH
+0C394h CDC6CA                           CALL      SST_B_KEY
+0C397h DD7100                           LD        (IX),C
+0C39Ah 00                               NOP       
+0C39Bh 00                               NOP       
+0C39Ch 00                               NOP       
+0C39Dh                                                           ; call spr_zap_CA ; zmienia IX !!
+0C39Dh                                                           ; call spr_za_FL
+0C39Dh                                                           ; jp nz, Z4 ; zapis bledny, suma kontrolna z CA inna niz z FLASH
+0C39Dh 210ECC                           LD        HL,END_WR      ; "end write" na CA
+0C3A0h CDD401                           CALL      PRINT
+0C3A3h 40                               DEFB      40H
+0C3A4h 3E94                             LD        A,L3
+0C3A6h D3E8                             OUT       (INSTR),A
+0C3A8h 76                               HALT      
+0C3A9h 21F7CD                           LD        HL,END_WR1     ;"KONIEC ZAPISU" na LCD
+0C3ACh CD18C9                           CALL      WYS_TEKST
+0C3AFh CF                               RST       8              ; CF czekaj na wcisniecie klawisza
+0C3B0h C309C0                           JP        EEP_1          ; pocz. programu
+0C3B3h                                            
+0C3B3h            SPR_END_SEKT:                                  ; jesli koniec sekktora 6FFF
+0C3B3h DD7C                             LD        A,IXH
+0C3B5h FE6F                             CP        6FH
+0C3B7h C0                               RET       NZ
+0C3B8h DD7D                             LD        A,IXL
+0C3BAh FEFF                             CP        0FFH           ; IX=6FFF , na nastepny sektor
+0C3BCh C0                               RET       NZ
+0C3BDh DD210060                         LD        IX,FL          ; od 6000
+0C3C1h CD75C4                           CALL      ZW_SEKT        ; nastepny sektor
+0C3C4h C9                               RET       
+0C3C5h                                                           ;==========
+0C3C5h            PROGR:                                         ; zapis programu [OD_CA] . [DO_CA] . [NR] = /nr programu
+0C3C5h D7                               RST       10H            ; D7 czysc wysw. CA
+0C3C6h 10                               DEFB      10H            ; jedna cyfra
+0C3C7h 3ED4                             LD        A,L4           ; pozycja
+0C3C9h 060E                             LD        B,14           ; ile skasowac
+0C3CBh CDBCC8                           CALL      CLR_LCD_ZN
+0C3CEh FDE5                             PUSH      IY             ; = SEKT_P
+0C3D0h                                                           ; zapisz obszar w CA /wpisywania  numerow/ bajtami FF
+0C3D0h CDAACB                           CALL      CLR_OB
+0C3D3h CDB6CB                           CALL      SZUK_NUMER     ; odczyt numerow programow i wpis do RAM CA80 od FE40
+0C3D6h CD7DC4                           CALL      POB_ADR_CA     ; pobranie adresow: pocz - koniec w CA
+0C3D9h FDE1                             POP       IY
+0C3DBh 180D                             JR        Z42_1
+0C3DDh            Z42:                                           ; gdy error przy wpisywaniu nr sektora, max 7F
+0C3DDh D7                               RST       10H
+0C3DEh 50                               DEFB      50H
+0C3DFh 21F8CB                           LD        HL,ER_1
+0C3E2h CDD401                           CALL      PRINT
+0C3E5h 35                               DEFB      35H
+0C3E6h CDC9C4                           CALL      OP_100MS
+0C3E9h 06                               DEFB      6
+0C3EAh            Z42_1:                          
+0C3EAh D7                               RST       10H            ; D7 czysc dwa znaki na CA
+0C3EBh 20                               DEFB      20H
+0C3ECh 2124CC                           LD        HL,NR_PROG     ; na CA "nrProg."
+0C3EFh CDD401                           CALL      PRINT
+0C3F2h 62                               DEFB      62H
+0C3F3h            Z43:                            
+0C3F3h 3EC0                             LD        A,L2
+0C3F5h D3E8                             OUT       (INSTR),A
+0C3F7h 76                               HALT      
+0C3F8h 21BECD                           LD        HL,KON_PR2     ; "PODAJ NR PROGRAMU" _LCD
+0C3FBh CD18C9                           CALL      WYS_TEKST
+0C3FEh CDF401                           CALL      PARAM          ; pobierz nr programu /do HL/
+0C401h 20                               DEFB      20H            ; PWYSW
+0C402h 7D                               LD        A,L            ; nr programu
+0C403h FE80                             CP        80H
+0C405h 30D6                             JR        NC,Z42         ; max sektor to 7F
+0C407h CDCECB                           CALL      SPR_NR         ; sprawdz, czy numer wolny
+0C40Ah 200E                             JR        NZ,Z43B        ; numer wolny
+0C40Ch                                                           ; numer zajety, wpisz inny
+0C40Ch F5                               PUSH      AF
+0C40Dh 215CCC                           LD        HL,NR_NF       ; na CA "nr.no.Fr."
+0C410h CDD401                           CALL      PRINT
+0C413h 62                               DEFB      62H
+0C414h F1                               POP       AF
+0C415h DF                               RST       18H            ; DF wysw. A
+0C416h 20                               DEFB      20H
+0C417h CF                               RST       8              ; CF
+0C418h 18C3                             JR        Z42
+0C41Ah                                            
+0C41Ah            Z43B:                                          ; numer wolny
+0C41Ah DF                               RST       18H            ; wysw. A
+0C41Bh 20                               DEFB      20H
+0C41Ch F5                               PUSH      AF
+0C41Dh CD67C9                           CALL      WYSW_A1        ; wysw. nr programu, bez zera poczatkowego
+0C420h F1                               POP       AF
+0C421h 321CFE                           LD        (NR_PR),A      ; zapamietanie
+0C424h                                                           ; szukaj konca programow: FD E4 FF, zacznij od sektora 0, dares od 6000 = FL
+0C424h AF                               XOR       A              ; A=0
+0C425h CDEFC1                           CALL      SPR12          ;ld (SEKT), A
+0C428h 11E4FD                           LD        DE,MAR_PR      ; FD E4
+0C42Bh            Z431:                           
+0C42Bh CD9EC6                           CALL      SZUK_MAR
+0C42Eh 7E                               LD        A,(HL)
+0C42Fh FEFF                             CP        0FFH
+0C431h 20F8                             JR        NZ,Z431
+0C433h                                                           ; znaleziono koniec programow FD E4 FF - zapisz sektor (IY) i adres (HL)
+0C433h E5                               PUSH      HL
+0C434h C1                               POP       BC             ; koniec programow w pam. FLASH, sektor wskazuje (IY)
+0C435h 3A1CFE                           LD        A,(NR_PR)
+0C438h CDC6CA                           CALL      SST_B_KEY      ; odblokowanie i wpis do FLASH
+0C43Bh 77                               LD        (HL),A
+0C43Ch 23                               INC       HL
+0C43Dh 7C                               LD        A,H
+0C43Eh FE70                             CP        70H
+0C440h CC75C4                           CALL      Z,ZW_SEKT
+0C443h ED5BC5FE                         LD        DE,(R_OD)      ; pocz. programu w CA
+0C447h CDC6CA                           CALL      SST_B_KEY
+0C44Ah 73                               LD        (HL),E
+0C44Bh 23                               INC       HL
+0C44Ch 7C                               LD        A,H
+0C44Dh FE70                             CP        70H
+0C44Fh CC75C4                           CALL      Z,ZW_SEKT
+0C452h CDC6CA                           CALL      SST_B_KEY
+0C455h 72                               LD        (HL),D
+0C456h 23                               INC       HL
+0C457h 7C                               LD        A,H
+0C458h FE70                             CP        70H
+0C45Ah CC75C4                           CALL      Z,ZW_SEKT
+0C45Dh E5                               PUSH      HL
+0C45Eh DDE1                             POP       IX             ; pocz. zapisu programu w pam. FLASH
+0C460h                                                           ;call dane_sumy
+0C460h 22D2FE                           LD        (P_PR_FL),HL   ; pocz. programu w pam. FLASH - przechowanie w FED2
+0C463h C33EC3                           JP        ZAP3
+0C466h                                            
+0C466h            ADD_SEKT_IX:                    
+0C466h 3AC4FE                           LD        A,(SEKT_P)
+0C469h                                                           ;ld A, (SEKT)
+0C469h 3C                               INC       A              ; nastepny sektor
+0C46Ah 32FD5F                           LD        (SEKT),A       ; ustaw adres w pam. FLASH- nastepny sektor
+0C46Dh 32C4FE                           LD        (SEKT_P),A
+0C470h DD210060                         LD        IX,FL
+0C474h C9                               RET       
+0C475h                                            
+0C475h            ZW_SEKT:                        
+0C475h                                                           ; ld a, (sekt_P); gdy FL1 ; lepiej ld A, (SEKT) ; dla FLASH 2
+0C475h 3AFD5F                           LD        A,(SEKT)
+0C478h 3C                               INC       A              ; nastepny sektor
+0C479h CDEFC1                           CALL      SPR12          ; porownanie, czy ostatni sektor, i HL od 6000
+0C47Ch C9                               RET       
+0C47Dh                                            
+0C47Dh            POB_ADR_CA:                     
+0C47Dh CD16CA                           CALL      POB_CAOD       ; pobranie adresu
+0C480h 22C5FE                           LD        (R_OD),HL
+0C483h E5                               PUSH      HL             ; do obl. dlugosci zapisu
+0C484h CD33CA                           CALL      POB_CADO       ; pobranie adresu
+0C487h 22C9FE                           LD        (R_DO),HL      ; adres RAM do ..
+0C48Ah D1                               POP       DE
+0C48Bh ED52                             SBC       HL,DE
+0C48Dh 23                               INC       HL
+0C48Eh 22C7FE                           LD        (DL_ZAP),HL    ; dlugosc bloku do zapisu
+0C491h C9                               RET       
+0C492h                                            
+0C492h            SET_SEKT:                                      ; ustaw sektor wg pobranego adresu zapisu do FLASH SST39SFxx
+0C492h AF                               XOR       A
+0C493h 7C                               LD        A,H            ; ustaw adres zapisu do FLASH
+0C494h            SET_SEKT_ODC:                   
+0C494h E6F0                             AND       0F0H
+0C496h 6F                               LD        L,A            ;przechowanie
+0C497h 3AD1FE                           LD        A,(BUF_ADR+4)  ; np. adres FL-12345, FEE1=01, 1234, FEE1=0 czyli sektor
+0C49Ah 85                               ADD       A,L
+0C49Bh 07                               RLCA      
+0C49Ch 07                               RLCA      
+0C49Dh 07                               RLCA      
+0C49Eh 07                               RLCA      
+0C49Fh 32FD5F                           LD        (SEKT),A       ; do FLASH
+0C4A2h 32C4FE                           LD        (SEKT_P),A     ; do RAM  bo FLASH V1 nie ma RAM !!
+0C4A5h                                                           ; ustawiamy poczatkowy adres zapisu do FLASH
+0C4A5h DD7C                             LD        A,IXH
+0C4A7h E60F                             AND       0FH            ; usuwamy starsze bity
+0C4A9h 47                               LD        B,A            ; zapamietanie
+0C4AAh 3E60                             LD        A,60H
+0C4ACh 80                               ADD       A,B
+0C4ADh DD67                             LD        IXH,A          ; adres zaczyna sie od 6xxx
+0C4AFh C9                               RET       
+0C4B0h                                            
+0C4B0h            CHIP_ERASE:                                    ; kasowanie CALEJ pamieci !!!
+0C4B0h D9                               EXX                      ; zamiana rejestrow
+0C4B1h 215575                           LD        HL,ADR5        ; HL - 7555h
+0C4B4h 11AA7A                           LD        DE,ADRA        ; DE - 7AAAh
+0C4B7h 3E55                             LD        A,55H
+0C4B9h 73                               LD        (HL),E         ;0AAh ; 1 cykl pod 7555 -> AA
+0C4BAh 12                               LD        (DE),A         ; 2 cykl pod 7AAA, dana 55
+0C4BBh 3680                             LD        (HL),80H       ; 3 cykl  pod 7555 -> 80
+0C4BDh 36AA                             LD        (HL),0AAH      ; 4 cykl  po  7555 => AA
+0C4BFh 12                               LD        (DE),A         ; 5 cykl pod 7AAA -> 55
+0C4C0h 3620                             LD        (HL),20H       ; 6 cykl  pod 7555 -> 10
+0C4C2h D9                               EXX                      ; czekaj TBLC0 + TWC /200uS + max 10mS/
+0C4C3h 76                               HALT      
+0C4C4h 76                               HALT      
+0C4C5h 76                               HALT      
+0C4C6h 76                               HALT      
+0C4C7h 76                               HALT      
+0C4C8h C9                               RET       
+0C4C9h                                            
+0C4C9h            OP_100MS:                                      ; opozn. x 0,1s+ podac param. /cd xx yy zz/
+0C4C9h E3                               EX        (SP),HL        ; zz - wielkosc opoznienia
+0C4CAh 7E                               LD        A,(HL)
+0C4CBh 23                               INC       HL
+0C4CCh E3                               EX        (SP),HL
+0C4CDh E5                               PUSH      HL
+0C4CEh C5                               PUSH      BC
+0C4CFh 6F                               LD        L,A
+0C4D0h            OP_LICZ:                        
+0C4D0h CDD9C4                           CALL      OP_2X50
+0C4D3h 2D                               DEC       L
+0C4D4h 20FA                             JR        NZ,OP_LICZ
+0C4D6h C1                               POP       BC
+0C4D7h E1                               POP       HL
+0C4D8h C9                               RET       
+0C4D9h                                                           ; ponizej op. trwajace ok. 0,1 sek
+0C4D9h 0632       OP_2X50:              LD        B,50
+0C4DBh 76         OP_2MS2:              HALT                     ;trwa 2 ms
+0C4DCh 10FD                             DJNZ      OP_2MS2
+0C4DEh C9                               RET       
+0C4DFh                                                           ;=============
+0C4DFh            POB_ADR:                                       ; pobranie adresu do bufora FEDF-FEE1, np. adr. 12345
+0C4DFh                                                           ; FEDF-45, ..E0-23, ..E1-01
+0C4DFh 21CDFE                           LD        HL,BUF_ADR     ; od FEDD
+0C4E2h CDA00C                           CALL      CLR_BUF        ; zerowanie obszaru / w CA88 kalkulator
+0C4E5h CDF5C4                           CALL      POB_KL_DAT
+0C4E8h 38F5                             JR        C,POB_ADR      ; blednie wpisano adres
+0C4EAh            POB_ADR1:                       
+0C4EAh CDF5C4                           CALL      POB_KL_DAT     ;
+0C4EDh 38F0                             JR        C,POB_ADR
+0C4EFh 28F9                             JR        Z,POB_ADR1
+0C4F1h FE0A                             CP        0AH
+0C4F3h 38F5                             JR        C,POB_ADR1
+0C4F5h            POB_KL_DAT:                                    ; pobranie
+0C4F5h CDC6FF                           CALL      CI             ; cd C6FF
+0C4F8h CD33C5                           CALL      TEST_KL        ; tylko cyfry 0-9
+0C4FBh D8                               RET       C
+0C4FCh 2005                             JR        NZ,POB_KL_DAT1
+0C4FEh 7E                               LD        A,(HL)
+0C4FFh B7                               OR        A
+0C500h C0                               RET       NZ
+0C501h 18F2                             JR        POB_KL_DAT
+0C503h                                            
+0C503h            POB_KL_DAT1:                                   ;
+0C503h B7                               OR        A
+0C504h 4F                               LD        C,A            ; przechowanie pobranej liczby
+0C505h 200E                             JR        NZ,POB_KL_DAT2
+0C507h 7E                               LD        A,(HL)
+0C508h B7                               OR        A
+0C509h 200A                             JR        NZ,POB_KL_DAT2
+0C50Bh D7                               RST       10H            ; czysc wysw. CA
+0C50Ch 80                               DEFB      80H
+0C50Dh 0E00                             LD        C,0
+0C50Fh CDE001                           CALL      CO
+0C512h 50                               DEFB      50H            ; ## ile miejsc wyswietlac ##
+0C513h 18E0                             JR        POB_KL_DAT
+0C515h                                            
+0C515h            POB_KL_DAT2:                    
+0C515h 7E                               LD        A,(HL)
+0C516h FE0F                             CP        0FH            ; max il. cyfr pobranych, wyswietl tylko 5, patrz ##
+0C518h 30DB                             JR        NC,POB_KL_DAT  ; liczy sie tylko 5 ostatnich, na wypadek,
+0C51Ah 79                               LD        A,C            ; gdybysmy sie pomylili przy wciskaniu klawiszy
+0C51Bh FE10                             CP        10H            ; jakie znaki - tylko 0-F !
+0C51Dh 30D6                             JR        NC,POB_KL_DAT
+0C51Fh 7E                               LD        A,(HL)
+0C520h B7                               OR        A
+0C521h 2002                             JR        NZ,POB_KL_DAT3
+0C523h D7                               RST       10H
+0C524h 80                               DEFB      80H
+0C525h            POB_KL_DAT3:                                   ;
+0C525h CDE001                           CALL      CO             ; wysw. cyfry z rej. C na CA
+0C528h 50                               DEFB      50H            ; ## ile miejsc wyswietlac, ##
+0C529h E5                               PUSH      HL
+0C52Ah CD560C                           CALL      PLEW           ; wpis pobranej cyfry (rej. C) do bufora /kalkul. CA80
+0C52Dh CD82C5                           CALL      C4             ; konwersja znakow z BUF_WYSW i wysw. na LCD
+0C530h E1                               POP       HL
+0C531h 18C2                             JR        POB_KL_DAT
+0C533h                                            
+0C533h            TEST_KL:                        
+0C533h FE10                             CP        10H            ; czy "G" - nowa adres
+0C535h 37                               SCF       
+0C536h FE12                             CP        12H            ; klawisz "="
+0C538h 2806                             JR        Z,SET_STOS
+0C53Ah B7                               OR        A
+0C53Bh C0                               RET       NZ
+0C53Ch 0E00                             LD        C,0
+0C53Eh 0C                               INC       C
+0C53Fh C9                               RET       
+0C540h            SET_STOS:                                      ; wyrownanie stosu
+0C540h C1                               POP       BC
+0C541h C1                               POP       BC
+0C542h C9                               RET                      ;   jp zap11
+0C543h                                            
+0C543h            PARAM_LCD:                                     ; pobieranie znakow /max 4 /HL/, adresow z jednoczesnym wysw. na lcd
+0C543h EF                               RST       28H            ; EF ustawienie parametrow wyswietlacza ca80 PWYS=FFF6
+0C544h 3AF6FF                           LD        A,(PWYS)
+0C547h F5                               PUSH      AF
+0C548h E6F0                             AND       0F0H           ;kasuj mlodsze bity /od ktorej poz. na CA wysw
+0C54Ah 07                               RLCA                     ; zostaw ile miejsc wyswietlac
+0C54Bh 07                               RLCA      
+0C54Ch 07                               RLCA      
+0C54Dh 07                               RLCA      
+0C54Eh 32FCFE                           LD        (ILE_CYF),A    ; (ile_cyfr) tyle cyfr wyswietlaj
+0C551h 21F7FF                           LD        HL,CYF0        ; CYF0 !!!
+0C554h 3D                               DEC       A
+0C555h 5F                               LD        E,A            ; przechowanie
+0C556h F1                               POP       AF
+0C557h E60F                             AND       0FH            ; od ktorej pozycji na CA beda wyswietlane znaki
+0C559h 83                               ADD       A,E
+0C55Ah 85                               ADD       A,L
+0C55Bh 6F                               LD        L,A
+0C55Ch 22FEFE                           LD        (POZ_CYF),HL   ; najstarsza cyfra do wyswietlania
+0C55Fh                                                           ; wyswietlane bedzie tylko (ile_cyf)
+0C55Fh                                            
+0C55Fh            PARAM1:                                        ; to ponizej pobiera tylko 4. znaki do HL, jesli wiecej-korzystaj z kalkulatora
+0C55Fh CF                               RST       8H             ; CF pobierz znak klawisza
+0C560h 28FD                             JR        Z,PARAM1
+0C562h 210000                           LD        HL,0           ; czysc hl
+0C565h            PAR1:                           
+0C565h F5                               PUSH      AF
+0C566h FE10                             CP        10H            ; czy cyfra szesnastkowa 0 - F
+0C568h 300F                             JR        NC,PAR2
+0C56Ah F1                               POP       AF
+0C56Bh 29                               ADD       HL,HL
+0C56Ch 29                               ADD       HL,HL
+0C56Dh 29                               ADD       HL,HL
+0C56Eh 29                               ADD       HL,HL          ; przesun w lewo o 4 bity
+0C56Fh B5                               OR        L              ; dopisz ostatnia pobrana cyfre
+0C570h 6F                               LD        L,A
+0C571h E5                               PUSH      HL             ;ochrona zawartosci
+0C572h CD82C5                           CALL      C4             ; wysw. na LCD pobrany znak
+0C575h E1                               POP       HL
+0C576h            PAR3:                           
+0C576h CF                               RST       8H             ; pobierz nastepny znak
+0C577h 18EC                             JR        PAR1
+0C579h            PAR2:                           
+0C579h F1                               POP       AF
+0C57Ah 20FA                             JR        NZ,PAR3
+0C57Ch F5                               PUSH      AF
+0C57Dh CD1100                           CALL      CLR1
+0C580h F1                               POP       AF
+0C581h C9                               RET       
+0C582h                                                           ; po kazdym wpisie pobranej cyfry jest wyswietl. piec cyfr na LCD
+0C582h            C4:                                            ; i konwersja cyfr z wysw. CA na kod LCD, nastepnie wysw. na LCD,
+0C582h 3AFDFE                           LD        A,(POZ_WYS)    ; gdzie wyswietlac - pozycja
+0C585h D3E8                             OUT       (INSTR),A
+0C587h 2AFEFE                           LD        HL,(POZ_CYF)   ; najbardziej znaczaca pozycja na CA80 /tu FB - CYFx/
+0C58Ah 3AFCFE                           LD        A,(ILE_CYF)    ; ile cyfr wyswietlac  - tu 5
+0C58Dh 47                               LD        B,A            ; ile cyfr
+0C58Eh            C41:                            
+0C58Eh 76                               HALT      
+0C58Fh 76                               HALT      
+0C590h 7E                               LD        A,(HL)
+0C591h 2B                               DEC       HL             ; nastepna CYFRA
+0C592h CD98C5                           CALL      KONW
+0C595h 10F7                             DJNZ      C41
+0C597h C9                               RET       
+0C598h                                            
+0C598h            KONW:                                          ; konwersja znaku z CYFx /wysw. CA/ na kod LCD
+0C598h E5                               PUSH      HL
+0C599h C5                               PUSH      BC
+0C59Ah FE00                             CP        0              ; jesli wyswietlacz "ciemny" - brak cyfry
+0C59Ch 2818                             JR        Z,C44          ;przeskocz, nie wyswietlaj na LCD
+0C59Eh FD21B9C5                         LD        IY,TLCD        ; tablica do konwersji znakow - moja wersja
+0C5A2h 211803                           LD        HL,TSIED       ; adres tablicy kodow 7. segm. w CA80 - od 0318h
+0C5A5h 0610                             LD        B,10H          ; dlugosc tablicy
+0C5A7h            C42:                            
+0C5A7h BE                               CP        (HL)           ; czy to ten ?
+0C5A8h 2805                             JR        Z,C43          ; znaleziono !
+0C5AAh 23                               INC       HL             ; na nastepny kod rzeczyw.
+0C5ABh FD23                             INC       IY             ; na nastepny kod konwersji
+0C5ADh 10F8                             DJNZ      C42            ; szukaj dalej
+0C5AFh            C43:                                           ; znak znaleziony
+0C5AFh B7                               OR        A
+0C5B0h FD7E00                           LD        A,(IY)         ; kod na LCD
+0C5B3h 76                               HALT      
+0C5B4h D3E9                             OUT       (DANA),A
+0C5B6h            C44:                            
+0C5B6h C1                               POP       BC
+0C5B7h E1                               POP       HL             ;?
+0C5B8h C9                               RET       
+0C5B9h                                                           ; odpowiedniki cyfr do wysw. na LCD /po znalezieniu cyfry z wysw. CA
+0C5B9h 30313233   TLCD:                 DEFB      30H,31H,32H,33H; 0, 1, 2, 3      ; tablica TSIED - od 318h
+0C5BDh 34353637                         DEFB      34H,35H,36H,37H; 4, 5, 6, 7
+0C5C1h 38394142                         DEFB      38H,39H,41H,42H; 8, 9, A, B
+0C5C5h 43444546                         DEFB      43H,44H,45H,46H; C, D, E, F
+0C5C9h                                                           ;=====
+0C5C9h            Z5:                                            ; szukanie programu i jego nazwy w pam. FLASH i wysw. na CA i LCD
+0C5C9h            SZUK_PROGR:                                    ; szukamy nr programu, po markerze FD E4/, zaczynamy od sektora 0
+0C5C9h CDD4C8                           CALL      INI_LCD
+0C5CCh AF                               XOR       A              ;  zaczynamy od poczatku
+0C5CDh CD14C7                           CALL      ADD_SEKT_HL+4
+0C5D0h 3C                               INC       A
+0C5D1h 32EAFE                           LD        (NR_L),A       ; startujemy od 1. linii na LCD
+0C5D4h            FL_SZ3:                                        ;HL = 6000h
+0C5D4h 11E4FD                           LD        DE,MAR_PR      ;w DE marker pocz. programu /po FD E4 jest nr programu/
+0C5D7h CD9EC6                           CALL      SZUK_MAR       ; szukaj markera
+0C5DAh                                                           ; znaleziono marker pocz. programu - FD E4
+0C5DAh            FL_SZ31:                        
+0C5DAh 7E                               LD        A,(HL)         ; jesli po FD E4 jest FF FF - koniec obszaru z programami
+0C5DBh FEFF                             CP        0FFH
+0C5DDh 2829                             JR        Z,END_SZUK
+0C5DFh                                            
+0C5DFh            FLASH_SZUK11:                   
+0C5DFh CDD0C6                           CALL      OBL_LINIE      ; w ktorej linii wyswietlic
+0C5E2h D3E8                             OUT       (INSTR),A      ; ustaw kursor na LCD
+0C5E4h            FL_SZ2:                         
+0C5E4h 3AC4FE                           LD        A,(SEKT_P)     ; 5FFD **
+0C5E7h FE7F                             CP        7FH            ; ostatni sektor ; w 7F sa dane odnosnie SUMY KONTROLNEJ !!
+0C5E9h 281D                             JR        Z,END_SZUK
+0C5EBh 7E                               LD        A,(HL)         ; nr programu
+0C5ECh F5                               PUSH      AF
+0C5EDh DF                               RST       18H            ; DF wysw. A /zmienia rej. C na CA/, nr programu
+0C5EEh 20                               DEFB      20H            ;nop ; call wys_nr_pr
+0C5EFh F1                               POP       AF             ; nr programu
+0C5F0h CD55C9                           CALL      WYSW_A         ; nr programu na LCD
+0C5F3h E7                               RST       20H            ; E7 wysw. HL - pocz. programu
+0C5F4h 43                               DEFB      43H
+0C5F5h                                                           ;ld A, (SEKT)
+0C5F5h 3AC4FE                           LD        A,(SEKT_P)     ;**
+0C5F8h DF                               RST       18H            ; DF wysw. A
+0C5F9h 26                               DEFB      26H
+0C5FAh                                                           ; teraz znajdz nazwe programu, po FD E4
+0C5FAh 11E2DD                           LD        DE,MAR_NAZ     ; po nim nazwa programu
+0C5FDh CD9EC6                           CALL      SZUK_MAR
+0C600h CDF5C6                           CALL      WYS_T2         ; wyswietl nazwe-max 17 znakow i sprawdz czy koniec sektora
+0C603h CDD0C6                           CALL      OBL_LINIE      ; czy juz 4. linia, jesli 5. przeskok na 1. linie
+0C606h 18CC                             JR        FL_SZ3
+0C608h                                            
+0C608h            END_SZUK:                       
+0C608h 21D1CD                           LD        HL,KON_PR      ; na LCD "KONIEC SEKTOROW"
+0C60Bh 3AEAFE                           LD        A,(NR_L)
+0C60Eh CDD0C6                           CALL      OBL_LINIE
+0C611h D3E8                             OUT       (INSTR),A
+0C613h CDF5C6                           CALL      WYS_T2
+0C616h CDC9C4                           CALL      OP_100MS
+0C619h 0F                               DEFB      15             ; ok. 1,5 sek
+0C61Ah CD24C9                           CALL      CZYSC_LCD
+0C61Dh 2138CE                           LD        HL,PR_END
+0C620h 3E80                             LD        A,L1           ; ustaw kursor 1. linia
+0C622h D3E8                             OUT       (INSTR),A
+0C624h CD18C9                           CALL      WYS_TEKST
+0C627h CF                               RST       8              ; CF- czekaj na wcisn. klawisza
+0C628h FE0F                             CP        0FH            ; 0-F to pobierz nr programu i przepisz do RAM
+0C62Ah 309D                             JR        NC,SZUK_PROGR  ; FLASH_SZUK1 ; wyswietlaj nazwy od nowa, jesli F1, pocz. programu FLASH
+0C62Ch                                                           ; wcisnieto nr programu
+0C62Ch            SZUK2:                          
+0C62Ch CD24C9                           CALL      CZYSC_LCD
+0C62Fh 21BECD                           LD        HL,KON_PR2     ; "podaj nr programu"
+0C632h CD18C9                           CALL      WYS_TEKST
+0C635h D7                               RST       10H            ; D7 czysc wysw. CA
+0C636h 20                               DEFB      20H            ; dwa pierwsze znaki
+0C637h 2124CC                           LD        HL,NR_PROG     ; "nrProg" na CA80
+0C63Ah CDD401                           CALL      PRINT
+0C63Dh 62                               DEFB      62H
+0C63Eh CDF401                           CALL      PARAM
+0C641h 20                               DEFB      20H            ; nr programu/sektora w L - wysw. na CA
+0C642h 4D                               LD        C,L            ; do porownania podczas szukania
+0C643h 7D                               LD        A,L            ; do wyswietlenia na LCD
+0C644h CD67C9                           CALL      WYSW_A1        ; na LCD nr programu, bez zera poczatkowego
+0C647h AF                               XOR       A              ; A=0
+0C648h 32FD5F                           LD        (SEKT),A       ; szukanie zaczynanmy od pierwszego sektora
+0C64Bh 32C4FE                           LD        (SEKT_P),A
+0C64Eh 32BFFE                           LD        (NR_SEKT),A    ; do przeskoku na nastepny sektor
+0C651h 11E4FD                           LD        DE,MAR_PR      ; marker programu FD E4
+0C654h 210060                           LD        HL,FL          ; zacznij od 6000h
+0C657h            SZ21:                                          ; szukaj numer programu - rej. C
+0C657h CD9EC6                           CALL      SZUK_MAR
+0C65Ah 7E                               LD        A,(HL)         ; odczytany nr programu
+0C65Bh FEFF                             CP        0FFH           ; FD E4 FF to koniec programow
+0C65Dh 28A9                             JR        Z,END_SZUK
+0C65Fh B9                               CP        C              ; zapamietany nr programu
+0C660h 23                               INC       HL
+0C661h 20F4                             JR        NZ,SZ21        ; numer nie znaleziony
+0C663h                                                           ;jr sz21 ; szukaj dalej
+0C663h                                                           ; znaleziono nr programu
+0C663h            SZ22:                           
+0C663h                                                           ; dwa nastepne bajty to pocz. programu w CA
+0C663h 5E                               LD        E,(HL)
+0C664h 23                               INC       HL
+0C665h 56                               LD        D,(HL)
+0C666h ED53C5FE                         LD        (R_OD),DE      ; pocz. programu w CA80
+0C66Ah 23                               INC       HL
+0C66Bh E5                               PUSH      HL             ; pocz. programu w pam. FLASH
+0C66Ch 3AFD5F                           LD        A,(SEKT)
+0C66Fh 32BFFE                           LD        (NR_SEKT),A    ; zapamietanie nr sektora /poczatek programu/
+0C672h 11E4FD                           LD        DE,MAR_PR      ; marker pocz. programu
+0C675h DD210000                         LD        IX,0           ; oblicza dlugosc programu, zamiast innych "sztuczek"
+0C679h CD9EC6                           CALL      SZUK_MAR       ; szukaj nastepnego FD E4
+0C67Ch E1                               POP       HL             ; pocz. w pam. FLASH
+0C67Dh DDE5                             PUSH      IX
+0C67Fh D1                               POP       DE             ; dlugosc do przepisania
+0C680h 1B                               DEC       DE
+0C681h                                                           ; przepisanie pobranego programu do CA
+0C681h 3ABFFE                           LD        A,(NR_SEKT)    ; zapamietany nr sektora podczas szukania
+0C684h 32FD5F                           LD        (SEKT),A       ; teraz CA80 ma dostep do FLASH gdzie pocz. programu
+0C687h ED4BC5FE                         LD        BC,(R_OD)      ; pocz. wpisu do RAM
+0C68Bh            S24:                            
+0C68Bh 7E                               LD        A,(HL)         ; odczyt z pam. FLASH
+0C68Ch 02                               LD        (BC),A         ; wpis do RAM
+0C68Dh 03                               INC       BC
+0C68Eh 23                               INC       HL             ; sprawdz koniec sektora
+0C68Fh 7C                               LD        A,H
+0C690h FE70                             CP        70H            ; czy 7000h
+0C692h CC75C4                           CALL      Z,ZW_SEKT      ;sz3 ; nastepny sektor
+0C695h 1B                               DEC       DE
+0C696h 7A                               LD        A,D
+0C697h B3                               OR        E
+0C698h 20F1                             JR        NZ,S24
+0C69Ah 2AC5FE                           LD        HL,(R_OD)
+0C69Dh E9                               JP        (HL)
+0C69Eh                                            
+0C69Eh                                                           ;===========
+0C69Eh            SZUK_MAR:                                      ; szukanie markera FD E4 /DD E2
+0C69Eh 7E                               LD        A,(HL)
+0C69Fh BA                               CP        D              ; czy FD
+0C6A0h F5                               PUSH      AF
+0C6A1h DD23                             INC       IX             ; tu bedzie dl. prog. podczas szukania numeru programu do przepisania da CA
+0C6A3h 23                               INC       HL             ; podczas nazwy - bezuzyteczne
+0C6A4h 7C                               LD        A,H
+0C6A5h FE70                             CP        70H            ; przekroczono 6FFF na 7000
+0C6A7h CC75C4                           CALL      Z,ZW_SEKT      ;sz3 ; przejdz na nastepny sektor
+0C6AAh                                            
+0C6AAh F1                               POP       AF
+0C6ABh 20F1                             JR        NZ,SZUK_MAR
+0C6ADh 7E                               LD        A,(HL)
+0C6AEh BB                               CP        E              ; czy E2 -szuk. programu czy E4 - szuk. nazwy
+0C6AFh 2812                             JR        Z,SZ4          ;  jr nz, szuk_mar
+0C6B1h FEE4                             CP        0E4H           ; jesli brak nazwy w programie, to po FD E4 tez bedzie FD E4
+0C6B3h 20E9                             JR        NZ,SZUK_MAR
+0C6B5h 3AEAFE                           LD        A,(NR_L)       ; linia na LCD
+0C6B8h 3C                               INC       A
+0C6B9h 32EAFE                           LD        (NR_L),A
+0C6BCh CDD0C6                           CALL      OBL_LINIE
+0C6BFh F1                               POP       AF             ; wyrownanie stosu
+0C6C0h C3DAC5                           JP        FL_SZ31
+0C6C3h                                            
+0C6C3h            SZ4:                            
+0C6C3h 23                               INC       HL
+0C6C4h 7C                               LD        A,H
+0C6C5h FE70                             CP        70H
+0C6C7h CC75C4                           CALL      Z,ZW_SEKT      ;sz3 ; SET nastepny sektor
+0C6CAh C9                               RET       
+0C6CBh                                                           ;===============
+0C6CBh            NUM_LINII:                                     ; tablica adresow poczatkow linii LCD
+0C6CBh 0080C094D4                       DEFB      0,L1,L2,L3,L4  ; musi byc na jednej stronie
+0C6D0h                                            
+0C6D0h            OBL_LINIE:                                     ; wpis do rej. A pocz. linii do wyswietlana
+0C6D0h 3AEAFE                           LD        A,(NR_L)       ; aktualnie nr linii do wyswietlania
+0C6D3h E5                               PUSH      HL
+0C6D4h 21CBC6                           LD        HL,NUM_LINII   ; (HL) wskazuje na zero
+0C6D7h 85                               ADD       A,L
+0C6D8h 6F                               LD        L,A
+0C6D9h 7E                               LD        A,(HL)         ; HL wskazuje nr linii
+0C6DAh D3E8                             OUT       (INSTR),A
+0C6DCh E1                               POP       HL
+0C6DDh            SET_LINIE:                                     ; jesli byla 4. linia, przejdz na 1.
+0C6DDh 3AEAFE                           LD        A,(NR_L)       ;
+0C6E0h FE05                             CP        5              ; czy byla wyswietl. 4. linia?
+0C6E2h C0                               RET       NZ
+0C6E3h            SPR_L1:                         
+0C6E3h 3E01                             LD        A,1            ; ustaw wyswietlanie na 1. linie LCD
+0C6E5h 32EAFE                           LD        (NR_L),A
+0C6E8h CF                               RST       8              ; CF czekaj na wcis. klawisza i wysw. nastepne
+0C6E9h F5                               PUSH      AF             ; zapamietaj klawisz
+0C6EAh CD24C9                           CALL      CZYSC_LCD
+0C6EDh F1                               POP       AF
+0C6EEh FE10                             CP        10H            ; czy > niz F np. G, . = , F1-F4
+0C6F0h D0                               RET       NC             ; inny niz 0-F / jesli 0 do F do przepisuje sektor do RAM
+0C6F1h                                                           ; przepisz program/sektor
+0C6F1h F1                               POP       AF             ; pseudo RET
+0C6F2h C32CC6                           JP        SZUK2          ; podaj numer programu i szukaj, przepisz i uruchom go
+0C6F5h                                            
+0C6F5h            WYS_T2:                                        ; wysw. na LCD max 17 znakow i przeskok na nastepna linie
+0C6F5h 1E12                             LD        E,18           ; max il. znakow do wysw
+0C6F7h            WYS_T21:                        
+0C6F7h 7E                               LD        A,(HL)         ; pobierz litere
+0C6F8h FEFF                             CP        0FFH
+0C6FAh 280D                             JR        Z,WYS2
+0C6FCh 76                               HALT      
+0C6FDh D3E9                             OUT       (DANA),A
+0C6FFh                                                           ; sprawdz, czy koniec sektora - podczas wyswietlania nazwy
+0C6FFh 23                               INC       HL
+0C700h 7C                               LD        A,H
+0C701h FE70                             CP        70H
+0C703h CC10C7                           CALL      Z,ADD_SEKT_HL
+0C706h 1D                               DEC       E
+0C707h 20EE                             JR        NZ,WYS_T21     ; wysw. nastepny znak
+0C709h            WYS2:                                          ; wszystkie znaki wyswietlone
+0C709h E5                               PUSH      HL
+0C70Ah 21EAFE                           LD        HL,NR_L
+0C70Dh 34                               INC       (HL)           ; nastepna linia LCD
+0C70Eh E1                               POP       HL
+0C70Fh C9                               RET       
+0C710h                                            
+0C710h            ADD_SEKT_HL:                                   ; gdy nazwa programu na przelomie dwoch sektorow, zwieksz nr sektora
+0C710h                                                           ;inc (IY+0) ; przeskok na nastepny sektor
+0C710h                                                           ;ld a, (IY+0)
+0C710h                                                           ;ld (nr_sekt), a
+0C710h                                                           ;ld (sekt), a ; ustaw adres sektora FLASH
+0C710h                                                           ;ld (sekt_P), a
+0C710h 3AC4FE                           LD        A,(SEKT_P)
+0C713h 3C                               INC       A
+0C714h 32FD5F                           LD        (SEKT),A
+0C717h 32C4FE                           LD        (SEKT_P),A     ; **
+0C71Ah 210060                           LD        HL,FL          ; od poczatku
+0C71Dh C9                               RET       
+0C71Eh                                                           ;=================
+0C71Eh            Z6:                                            ; przepisanie FLASH do RAM w CA80
+0C71Eh 3E01                             LD        A,1            ; czysc LCD
+0C720h D3E8                             OUT       (INSTR),A
+0C722h 3ED4                             LD        A,L4
+0C724h CD0FC9                           CALL      BUSY
+0C727h D3E8                             OUT       (INSTR),A
+0C729h 2156CD                           LD        HL,KL_0+2      ; "ODCZYT"
+0C72Ch CD18C9                           CALL      WYS_TEKST
+0C72Fh            OD6:                            
+0C72Fh CD49CA                           CALL      ZAP_FL39_OD    ; pobranie adresu "OD" FLASH
+0C732h 3802                             JR        C,OD3
+0C734h 18F9                             JR        OD6
+0C736h                                                           ; adres prawidlowy
+0C736h            OD3:                                           ; zapisz ten adres
+0C736h 2ACFFE                           LD        HL,(BUF_ADR+2)
+0C739h E5                               PUSH      HL             ;4. bajty pocz. adr. FLASH , najstarszy 5.bajt zapisany w <zap15>
+0C73Ah 22C1FE                           LD        (FL_DANE+1),HL ; zapis adresu pocz.
+0C73Dh            OD3_1:                          
+0C73Dh 3ECF                             LD        A,L2+15
+0C73Fh 0605                             LD        B,5
+0C741h CDBCC8                           CALL      CLR_LCD_ZN
+0C744h CD6DCA                           CALL      ZAP_EE29_DO    ; pobranie adresu "DO" FLASH
+0C747h 30F4                             JR        NC,OD3_1       ; adres OK, < 7.FFFF /dla 512 kB/ 3.FFFF-256 kB, 1.FFFF - 128 kB/
+0C749h                                                           ;jr Od3_1 ; adres zly, >= 80.000
+0C749h            OD3_2:                          
+0C749h D1                               POP       DE             ; 4. bajty pocz. adr. FLASH /liczac od najmloszej pozycji/
+0C74Ah 2ACFFE                           LD        HL,(BUF_ADR+2) ; adres FLASH do ..
+0C74Dh B7                               OR        A              ;
+0C74Eh ED52                             SBC       HL,DE
+0C750h 23                               INC       HL
+0C751h 22C7FE                           LD        (DL_ZAP),HL
+0C754h E5                               PUSH      HL
+0C755h 3E94                             LD        A,L3
+0C757h D3E8                             OUT       (INSTR),A
+0C759h 21FACC                           LD        HL,DLUG1       ; wysw. ilosc bajtow
+0C75Ch CD18C9                           CALL      WYS_TEKST
+0C75Fh E1                               POP       HL
+0C760h CD31C9                           CALL      WYS_ADR_LCD    ; wysw. ilosc bajtow
+0C763h 01FF7C                           LD        BC,7CFFH       ; max wolne bajty od 8000-FCFF, /w moim CA80 - SK/
+0C766h ED42                             SBC       HL,BC
+0C768h 3811                             JR        C,OD4          ; jest OK, zmiesci sie w CA
+0C76Ah                                                           ;  zbyt dlugi, moze zniszczyc stos i inne dane
+0C76Ah 3EC0                             LD        A,L2
+0C76Ch D3E8                             OUT       (INSTR),A
+0C76Eh 21E7CC                           LD        HL,DLUG        ; "zapis przekroczy FD00"
+0C771h CD18C9                           CALL      WYS_TEKST
+0C774h            OD31:                           
+0C774h CDC6FF                           CALL      CI
+0C777h FE12                             CP        12H            ; = OK
+0C779h 20C2                             JR        NZ,OD3_1
+0C77Bh            OD4:                                           ; pobierz adres zapisu do RAM
+0C77Bh D7                               RST       10H            ; D7
+0C77Ch 40                               DEFB      40H
+0C77Dh CD16CA                           CALL      POB_CAOD       ; RAM "od"
+0C780h 7C                               LD        A,H
+0C781h FE80                             CP        80H            ; adres wpisu do CA musi byc >= 8000h !! /4000-7FFF FLASH/
+0C783h 3019                             JR        NC,OD5         ; jest OK
+0C785h                                                           ; adres bledny
+0C785h 3E94                             LD        A,L3
+0C787h D3E8                             OUT       (INSTR),A
+0C789h 2106CD                           LD        HL,POP_ADR     ; "popraw adres > 8000"
+0C78Ch CD18C9                           CALL      WYS_TEKST
+0C78Fh CDC9C4                           CALL      OP_100MS
+0C792h 0F                               DEFB      15             ; opozn. ok. 1,5 sek
+0C793h D7                               RST       10H
+0C794h 40                               DEFB      40H
+0C795h 0611                             LD        B,17
+0C797h 3E94                             LD        A,L3
+0C799h CDBCC8                           CALL      CLR_LCD_ZN
+0C79Ch 18DD                             JR        OD4
+0C79Eh            OD5:                                           ;przepisz obszar z FLASH do CA /adr. pocz.  >=8000h
+0C79Eh                                                           ; HL-pocz. zapisu w CA, pocz. w FLASH ( BUF_ADR+4)
+0C79Eh E5                               PUSH      HL
+0C79Fh DD2AC1FE                         LD        IX,(FL_DANE+1)
+0C7A3h DD7C                             LD        A,IXH          ; do ustawienia sektora przy odczycie
+0C7A5h 67                               LD        H,A
+0C7A6h                                                           ; starsze bajty adresu, do ustawienia sektora
+0C7A6h CD92C4                           CALL      SET_SEKT
+0C7A9h E1                               POP       HL             ; adres pocz, zapisu do CA
+0C7AAh ED5BC7FE                         LD        DE,(DL_ZAP)
+0C7AEh            OD51:                           
+0C7AEh DD4E00                           LD        C,(IX)         ; adres w FLASH; max to 6FFF, przeskok na 7000 to zmiana seltora
+0C7B1h 71                               LD        (HL),C         ; wpis do CA
+0C7B2h DD23                             INC       IX
+0C7B4h DD7C                             LD        A,IXH
+0C7B6h CB67                             BIT       4,A            ; lub CP 70h - jeden takt mniej
+0C7B8h                                                           ;jr z, Od52
+0C7B8h                                                           ;call ADD_SEKT_IX ; bo IX = 7000
+0C7B8h C466C4                           CALL      NZ,ADD_SEKT_IX
+0C7BBh            OD52:                                          ; sprawdz, czy koniec zapisu /DL_ZAP/
+0C7BBh 23                               INC       HL
+0C7BCh 1B                               DEC       DE
+0C7BDh AF                               XOR       A
+0C7BEh BB                               CP        E
+0C7BFh 20ED                             JR        NZ,OD51        ; zapisuj dalej
+0C7C1h BA                               CP        D
+0C7C2h 20EA                             JR        NZ,OD51
+0C7C4h 2B                               DEC       HL
+0C7C5h E5                               PUSH      HL
+0C7C6h E7                               RST       20H            ; E7 -wysw. rej. HL
+0C7C7h 41                               DEFB      41H
+0C7C8h 210ECC                           LD        HL,END_WR
+0C7CBh CDD401                           CALL      PRINT
+0C7CEh 35                               DEFB      35H
+0C7CFh 3E8C                             LD        A,L1+12
+0C7D1h D3E8                             OUT       (INSTR),A
+0C7D3h 21D7CC                           LD        HL,RAM_DO      ; "do"
+0C7D6h CD18C9                           CALL      WYS_TEKST
+0C7D9h E1                               POP       HL
+0C7DAh CD31C9                           CALL      WYS_ADR_LCD
+0C7DDh CF                               RST       8              ; CF czekaj na wcis. klaw
+0C7DEh C300C0                           JP        ZAP_FL         ; koniec obszaru zapisu RAM, wroc na pocz. programu
+0C7E1h                                                           ;==
+0C7E1h            Z7:                             
+0C7E1h CD24C9                           CALL      CZYSC_LCD
+0C7E4h 21BECD                           LD        HL,KON_PR2     ; "podaj nr programu"
+0C7E7h CD18C9                           CALL      WYS_TEKST
+0C7EAh D7                               RST       10H            ; D7 czysc wysw. CA
+0C7EBh 20                               DEFB      20H            ; dwa pierwsze znaki
+0C7ECh 2124CC                           LD        HL,NR_PROG     ; "nrProg" na CA80
+0C7EFh CDD401                           CALL      PRINT
+0C7F2h 62                               DEFB      62H
+0C7F3h CDF401                           CALL      PARAM
+0C7F6h 20                               DEFB      20H            ; nr programu/sektora w L - wysw. na CA
+0C7F7h 4D                               LD        C,L            ; do porownania podczas szukania
+0C7F8h 7D                               LD        A,L            ; do wyswietlenia na LCD
+0C7F9h CD67C9                           CALL      WYSW_A1        ; na LCD nr programu, bez zera poczatkowego
+0C7FCh CDEEC1                           CALL      SPR12A         ; zacznij do sektora 0 i HL = 6000
+0C7FFh 11E4FD                           LD        DE,MAR_PR      ; marker programu FD E4
+0C802h            SZ21A:                                         ; szukaj numer programu - rej. C
+0C802h 7E                               LD        A,(HL)
+0C803h BA                               CP        D              ; czy FD
+0C804h F5                               PUSH      AF
+0C805h 23                               INC       HL
+0C806h 7C                               LD        A,H
+0C807h FE70                             CP        70H            ; przekroczono 6FFF na 7000
+0C809h CC75C4                           CALL      Z,ZW_SEKT      ; przejdz na nastepny sektor
+0C80Ch F1                               POP       AF
+0C80Dh 20F3                             JR        NZ,SZ21A
+0C80Fh 7E                               LD        A,(HL)
+0C810h BB                               CP        E              ; czy E2 -szuk. programu
+0C811h 20EF                             JR        NZ,SZ21A
+0C813h 23                               INC       HL
+0C814h 7C                               LD        A,H
+0C815h FE70                             CP        70H            ; przekroczono 6FFF na 7000
+0C817h CC75C4                           CALL      Z,ZW_SEKT      ; przejdz na nastepny sektor
+0C81Ah 7E                               LD        A,(HL)         ; odczytany nr programu
+0C81Bh FEFF                             CP        0FFH           ; FD E4 FF to koniec programow
+0C81Dh CA08C6                           JP        Z,END_SZUK
+0C820h B9                               CP        C              ; zapamietany nr programu
+0C821h 23                               INC       HL
+0C822h 20DE                             JR        NZ,SZ21A       ; numer nie znaleziony  
+0C824h                                                           ;inc HL
+0C824h                                                           ;jr sz21a ; szukaj dalej
+0C824h                                                           ; znaleziono nr programu
+0C824h            SZ22A:                          
+0C824h                                                           ;inc HL ; dwa nastepne bajty to pocz. programu w CA
+0C824h 5E                               LD        E,(HL)
+0C825h 23                               INC       HL
+0C826h 56                               LD        D,(HL)
+0C827h ED53C5FE                         LD        (R_OD),DE      ; pocz. programu w CA80
+0C82Bh 23                               INC       HL
+0C82Ch E5                               PUSH      HL             ; pocz. programu w pam. FLASH
+0C82Dh 22CDFE                           LD        (BUF_ADR),HL   ; zapamietanie + sektor ponizej
+0C830h 3AC4FE                           LD        A,(SEKT_P)
+0C833h 32CCFE                           LD        (BUF_ADR-1),A  ; zapamietaj - aktualny nr sektora - pocz. programu w pam. FLASH
+0C836h 11E4FD                           LD        DE,MAR_PR      ; marker pocz. programu
+0C839h DD210000                         LD        IX,0           ; oblicza dlugosc programu, zamiast innych "sztuczek"
+0C83Dh CD9EC6                           CALL      SZUK_MAR       ; szukaj nastepnego FD E4
+0C840h E5                               PUSH      HL
+0C841h 2B                               DEC       HL
+0C842h 2B                               DEC       HL
+0C843h 2B                               DEC       HL
+0C844h                                                           ; ustaw kurosor na wysw. konca programu w pam. FLASH
+0C844h 3ED0                             LD        A,L2+16
+0C846h D3E8                             OUT       (INSTR),A
+0C848h 22D0FE                           LD        (BUF_ADR+3),HL ; koniec programu w pam. FLASH /plus sektor !!!/
+0C84Bh 3AC4FE                           LD        A,(SEKT_P)
+0C84Eh                                                           ;ld A, (SEKT)
+0C84Eh 32CFFE                           LD        (BUF_ADR+2),A
+0C851h 76                               HALT      
+0C852h CD31C9                           CALL      WYS_ADR_LCD
+0C855h                                                           ; ustaw kurosor na wysw. pocz. programu w pam. FLASH
+0C855h 3ECA                             LD        A,L2+10
+0C857h 76                               HALT      
+0C858h D3E8                             OUT       (INSTR),A
+0C85Ah 2ACDFE                           LD        HL,(BUF_ADR)   ; pocz. programu
+0C85Dh 76                               HALT      
+0C85Eh CD31C9                           CALL      WYS_ADR_LCD
+0C861h 3E2D                             LD        A,"-"
+0C863h 76                               HALT      
+0C864h D3E9                             OUT       (DANA),A
+0C866h 3ACFFE                           LD        A,(BUF_ADR+2)
+0C869h 76                               HALT      
+0C86Ah CD55C9                           CALL      WYSW_A
+0C86Dh 3EC9                             LD        A,L2+9
+0C86Fh 76                               HALT      
+0C870h D3E8                             OUT       (INSTR),A
+0C872h 3ACCFE                           LD        A,(BUF_ADR-1)
+0C875h 76                               HALT      
+0C876h CD55C9                           CALL      WYSW_A
+0C879h 3EC0                             LD        A,L2
+0C87Bh 76                               HALT      
+0C87Ch D3E8                             OUT       (INSTR),A
+0C87Eh 21DACE                           LD        HL,FLA         ; "FLASH"
+0C881h 76                               HALT      
+0C882h CD18C9                           CALL      WYS_TEKST
+0C885h 2AC5FE                           LD        HL,(R_OD)      ; pocz. programu w CA80
+0C888h E7                               RST       LADR           ; wysw. HL
+0C889h 44                               DEFB      44H
+0C88Ah 21FBFF                           LD        HL,CYF4
+0C88Dh CBFE                             SET       7,(HL)
+0C88Fh DDE5                             PUSH      IX
+0C891h E1                               POP       HL
+0C892h E7                               RST       LADR           ; wysw. HL
+0C893h 40                               DEFB      40H
+0C894h 3E94                             LD        A,L3
+0C896h D3E8                             OUT       (INSTR),A
+0C898h 21E3CE                           LD        HL,CA_DL       ; "PROGRAM CA"
+0C89Bh 76                               HALT      
+0C89Ch CD18C9                           CALL      WYS_TEKST
+0C89Fh 2AC5FE                           LD        HL,(R_OD)      ; pocz. progr. w CA "od"
+0C8A2h 76                               HALT      
+0C8A3h CD31C9                           CALL      WYS_ADR_LCD
+0C8A6h 3E2D                             LD        A,"-"
+0C8A8h 76                               HALT      
+0C8A9h D3E9                             OUT       (DANA),A
+0C8ABh DDE5                             PUSH      IX
+0C8ADh C1                               POP       BC
+0C8AEh ED4A                             ADC       HL,BC
+0C8B0h 2B                               DEC       HL
+0C8B1h 76                               HALT      
+0C8B2h CD31C9                           CALL      WYS_ADR_LCD
+0C8B5h 00                               NOP       
+0C8B6h 00                               NOP       
+0C8B7h 00                               NOP       
+0C8B8h CF                               RST       8              ; CF
+0C8B9h C309C0                           JP        EEP_1
+0C8BCh                                                           ;==
+0C8BCh                                                           ;Z8: ; inicjacja FLASH - wpis od 00000 FD E4 FF
+0C8BCh                                                           ;  jp ini_FL
+0C8BCh            CLR_LCD_ZN:                     
+0C8BCh                                                           ; kasuje znaki na lcd: ilosc w rej. B, rej. A - od pozycji
+0C8BCh F5                               PUSH      AF
+0C8BDh CD0FC9                           CALL      BUSY
+0C8C0h D3E8                             OUT       (INSTR),A      ; ustawia kursor
+0C8C2h E5                               PUSH      HL
+0C8C3h 3E20                             LD        A,20H          ; kod spacj1
+0C8C5h            KAS:                            
+0C8C5h CD0FC9                           CALL      BUSY
+0C8C8h D3E9                             OUT       (DANA),A
+0C8CAh 10F9                             DJNZ      KAS
+0C8CCh E1                               POP       HL
+0C8CDh F1                               POP       AF
+0C8CEh CD0FC9                           CALL      BUSY
+0C8D1h D3E8                             OUT       (INSTR),A      ; powrot kursora na pocz. kasowanych znakow
+0C8D3h C9                               RET       
+0C8D4h                                                           ;===============
+0C8D4h                                                           ; obsluga LCD
+0C8D4h            INI_LCD:                        
+0C8D4h 3E30                             LD        A,30H          ;
+0C8D6h D3E8                             OUT       (INSTR),A
+0C8D8h 76                               HALT      
+0C8D9h 76                               HALT      
+0C8DAh 76                               HALT      
+0C8DBh 3E30                             LD        A,30H
+0C8DDh D3E8                             OUT       (INSTR),A
+0C8DFh CD09C9                           CALL      OP_100US
+0C8E2h CD09C9                           CALL      OP_100US
+0C8E5h 3E30                             LD        A,30H
+0C8E7h D3E8                             OUT       (INSTR),A
+0C8E9h CD09C9                           CALL      OP_100US
+0C8ECh 3E38                             LD        A,38H          ; sterowanie 8-bit
+0C8EEh D3E8                             OUT       (INSTR),A
+0C8F0h CD0FC9                           CALL      BUSY
+0C8F3h 3E01                             LD        A,1            ; czysc LCD
+0C8F5h D3E8                             OUT       (INSTR),A
+0C8F7h 76                               HALT      
+0C8F8h 76                               HALT      
+0C8F9h CD09C9                           CALL      OP_100US
+0C8FCh 3E0E                             LD        A,0EH          ; kursor na dole i wlacz LCD
+0C8FEh D3E8                             OUT       (INSTR),A
+0C900h CD09C9                           CALL      OP_100US
+0C903h 3E06                             LD        A,6
+0C905h D3E8                             OUT       (INSTR),A
+0C907h 76                               HALT      
+0C908h                                                           ;call wpis_PLD
+0C908h                                                           ;ld a, L1
+0C908h                                                           ;out (instr), A
+0C908h C9                               RET                      ; powrot z podprogramu ini_lcd
+0C909h                                            
+0C909h            OP_100US:                       
+0C909h 3E50                             LD        A,50H
+0C90Bh            OP2:                            
+0C90Bh 3D                               DEC       A
+0C90Ch 20FD                             JR        NZ,OP2
+0C90Eh C9                               RET       
+0C90Fh                                            
+0C90Fh            BUSY:                                          ; czy LCD gotowe na dalsze instrukcje
+0C90Fh F5                               PUSH      AF
+0C910h            BUSY1:                          
+0C910h DBEA                             IN        A,(LCD_BUSY)
+0C912h E680                             AND       80H
+0C914h 20FA                             JR        NZ,BUSY1
+0C916h F1                               POP       AF
+0C917h C9                               RET       
+0C918h                                            
+0C918h            WYS_TEKST:                                     ; wysw. tekst wg (hl), koniec tekstu FF
+0C918h 7E                               LD        A,(HL)
+0C919h FEFF                             CP        0FFH
+0C91Bh C8                               RET       Z
+0C91Ch CD0FC9                           CALL      BUSY
+0C91Fh D3E9                             OUT       (DANA),A
+0C921h 23                               INC       HL
+0C922h 18F4                             JR        WYS_TEKST
+0C924h                                            
+0C924h            CZYSC_LCD:                                     ; czysci lcd i ustawia kursor na pozycji poczatkowej LCD
+0C924h 3E01                             LD        A,1
+0C926h D3E8                             OUT       (INSTR),A
+0C928h 76                               HALT                     ; opoznienie
+0C929h 76                               HALT      
+0C92Ah            U_K_HOME:                                      ; ustaw kursor na poczatek LCD
+0C92Ah 3E80                             LD        A,L1           ; 1. linia/
+0C92Ch D3E8                             OUT       (INSTR),A
+0C92Eh 76                               HALT                     ; opoznienie
+0C92Fh 76                               HALT      
+0C930h C9                               RET       
+0C931h                                            
+0C931h            WYS_ADR_LCD:                                   ; wyswietla 4. znaki z rej. HL, wg aktualnej pozycji kursora
+0C931h C5                               PUSH      BC
+0C932h 7C                               LD        A,H
+0C933h CD55C9                           CALL      WYSW_A         ; rozdziela rej. A na dwa bajty i wyswietla na lcd
+0C936h 7D                               LD        A,L
+0C937h CD55C9                           CALL      WYSW_A         ; HL na kody liter/cyfr na lcd
+0C93Ah C1                               POP       BC
+0C93Bh C9                               RET       
+0C93Ch                                            
+0C93Ch            ROZDZIEL:                                      ; dzieli rej. A na dwie liczby/znaki i umieszcza w HL
+0C93Ch F5                               PUSH      AF
+0C93Dh E6F0                             AND       0F0H           ; usun mlodsze bity
+0C93Fh 0F                               RRCA                     ; na prawo
+0C940h 0F                               RRCA      
+0C941h 0F                               RRCA      
+0C942h 0F                               RRCA      
+0C943h CD4FC9                           CALL      ZAMIEN         ; zamienia litery na cyfry, cyfry bez zmian
+0C946h 6F                               LD        L,A
+0C947h F1                               POP       AF
+0C948h E60F                             AND       0FH            ; usun starsze bity
+0C94Ah CD4FC9                           CALL      ZAMIEN
+0C94Dh 67                               LD        H,A
+0C94Eh C9                               RET       
+0C94Fh                                            
+0C94Fh            ZAMIEN:                                        ; zamiana cyfr hex na ASCII, wg ZEGAR
+0C94Fh                                                           ; do wyswietlania na LCD
+0C94Fh FE0A                             CP        0AH            ; litera czy cyfra - cyfry <= 9, litery > 9
+0C951h DE69                             SBC       A,69H
+0C953h 27                               DAA       
+0C954h C9                               RET       
+0C955h                                            
+0C955h            WYSW_A:                                        ; wyswietla zaw. rej A na lcd, wg aktualn. stanu lcd
+0C955h E5                               PUSH      HL
+0C956h CD3CC9                           CALL      ROZDZIEL
+0C959h 7D                               LD        A,L
+0C95Ah CD0FC9                           CALL      BUSY
+0C95Dh D3E9                             OUT       (DANA),A
+0C95Fh 7C                               LD        A,H
+0C960h CD0FC9                           CALL      BUSY
+0C963h D3E9                             OUT       (DANA),A
+0C965h E1                               POP       HL
+0C966h C9                               RET       
+0C967h                                            
+0C967h            WYSW_A1:                                       ; wyswietlenie rej. A na LCD bez zera poczatkowego, np. godzina 7:55:25
+0C967h E5                               PUSH      HL
+0C968h CD3CC9                           CALL      ROZDZIEL
+0C96Bh 7D                               LD        A,L            ;
+0C96Ch FE30                             CP        30H
+0C96Eh 2805                             JR        Z,WA1
+0C970h CD0FC9                           CALL      BUSY
+0C973h D3E9                             OUT       (DANA),A
+0C975h            WA1:                            
+0C975h 7C                               LD        A,H
+0C976h CD0FC9                           CALL      BUSY
+0C979h D3E9                             OUT       (DANA),A
+0C97Bh            WYS1:                           
+0C97Bh E1                               POP       HL
+0C97Ch C9                               RET       
+0C97Dh                                            
+0C97Dh            WPIS_PLD:                                      ; wpis duzych liter PL
+0C97Dh 21D6C9                           LD        HL,ZNAKI_PLD
+0C980h 1803                             JR        WP_1
+0C982h            WPIS_PLM:                                      ; wpis malych liter PL do LCD
+0C982h 2196C9                           LD        HL,ZNAKI_PLM
+0C985h            WP_1:                           
+0C985h 3E40                             LD        A,40H
+0C987h D3E8                             OUT       (INSTR),A
+0C989h                                                           ;wpis_CGRAM: ; wpis znakow do LCD
+0C989h 0640                             LD        B,64           ; 40h
+0C98Bh            WP_2:                           
+0C98Bh 7E                               LD        A,(HL)
+0C98Ch CD0FC9                           CALL      BUSY
+0C98Fh D3E9                             OUT       (DANA),A
+0C991h 23                               INC       HL
+0C992h 10F7                             DJNZ      WP_2
+0C994h 76                               HALT      
+0C995h C9                               RET       
+0C996h            ZNAKI_PLM:                                     ; male litery  /diakrytyczne/
+0C996h 00000E010F                       DEFB      0,0,0EH,1,0FH,11H,0FH,2; -> 0 /a z "ogonkiem"
+0C99Eh 02040E1010                       DEFB      2,4,0EH,10H,10H,11H,0EH,0; c -> 1
+0C9A6h 000E111F10                       DEFB      0,0EH,11H,1FH,10H,0EH,2,0; e
+0C9AEh 0C0406040C                       DEFB      0CH,4,6,4,0CH,4,0EH,0; l
+0C9B6h 0204161911                       DEFB      2,4,16H,19H,11H,11H,11H,0; n
+0C9BEh 02040E1111                       DEFB      2,4,0EH,11H,11H,11H,0EH,0; o
+0C9C6h 02040E100E                       DEFB      2,4,0EH,10H,0EH,1,1EH,0; s
+0C9CEh 00041F0204                       DEFB      0,4,1FH,2,4,8,1FH,0; z -> 7
+0C9D6h            ZNAKI_PLD:                                     ; duze litery
+0C9D6h 0E11111F11                       DEFB      0EH,11H,11H,1FH,11H,11H,2,0; -> 0  /A z "ogonkiem"
+0C9DEh 040E111010                       DEFB      4,0EH,11H,10H,10H,11H,0EH,0; C -> 1
+0C9E6h 1F10101C10                       DEFB      1FH,10H,10H,1CH,10H,10H,1FH,2;E
+0C9EEh 1010141810                       DEFB      10H,10H,14H,18H,10H,10H,1FH,0; L
+0C9F6h 0415191513                       DEFB      4,15H,19H,15H,13H,11H,11H,0; N
+0C9FEh 040E111111                       DEFB      4,0EH,11H,11H,11H,11H,0EH,0; O
+0CA06h 040F101F01                       DEFB      4,0FH,10H,1FH,1,11H,1FH,0; S
+0CA0Eh 041F11020C                       DEFB      4,1FH,11H,2,0CH,11H,1FH,0; Z -> 7
+0CA16h                                            
+0CA16h            POB_CAOD:                       
+0CA16h 21DDCB                           LD        HL,CA_OD       ; RAM od....
+0CA19h CDD401                           CALL      PRINT
+0CA1Ch 44                               DEFB      44H
+0CA1Dh 3E80                             LD        A,L1
+0CA1Fh D3E8                             OUT       (INSTR),A
+0CA21h 76                               HALT      
+0CA22h 21CCCC                           LD        HL,RAM_OD
+0CA25h CD18C9                           CALL      WYS_TEKST
+0CA28h 76                               HALT      
+0CA29h 3E87                             LD        A,L1+7         ; tu pocz. wysw. pobieranego adresu "od"
+0CA2Bh            POB1:                           
+0CA2Bh 32FDFE                           LD        (POZ_WYS),A
+0CA2Eh CD43C5                           CALL      PARAM_LCD      ; pobiera adres, max 4. cyfry /HL/
+0CA31h 40                               DEFB      40H            ; PWYSW
+0CA32h C9                               RET       
+0CA33h                                            
+0CA33h            POB_CADO:                       
+0CA33h 21E2CB                           LD        HL,CA_DO       ; RAM do ....
+0CA36h CDD401                           CALL      PRINT
+0CA39h 44                               DEFB      44H
+0CA3Ah 3E8C                             LD        A,L1+12        ; tu pocz. wysw. pobieranego adresu "do"
+0CA3Ch D3E8                             OUT       (INSTR),A
+0CA3Eh 76                               HALT      
+0CA3Fh 21D7CC                           LD        HL,RAM_DO
+0CA42h CD18C9                           CALL      WYS_TEKST
+0CA45h 3E8F                             LD        A,L1+15
+0CA47h 18E2                             JR        POB1
+0CA49h                                            
+0CA49h            ZAP_FL39_OD:                    
+0CA49h 21E7CB                           LD        HL,FLOD        ; zapis do SST 39SF od sektora....
+0CA4Ch CDD401                           CALL      PRINT
+0CA4Fh 44                               DEFB      44H
+0CA50h 3EC0                             LD        A,L2
+0CA52h D3E8                             OUT       (INSTR),A
+0CA54h 76                               HALT      
+0CA55h 21DBCC                           LD        HL,FL_OD
+0CA58h CD18C9                           CALL      WYS_TEKST
+0CA5Bh 3EC6                             LD        A,L2+6
+0CA5Dh 32FDFE                           LD        (POZ_WYS),A
+0CA60h 3E05                             LD        A,5            ; bedzie teraz 5. liczb
+0CA62h 32FCFE                           LD        (ILE_CYF),A
+0CA65h 21FBFF                           LD        HL,CYF4        ; /FFFB/
+0CA68h 22FEFE                           LD        (POZ_CYF),HL
+0CA6Bh 1819                             JR        ZAP22
+0CA6Dh                                            
+0CA6Dh            ZAP_EE29_DO:                                   ; np. adres 65432 : FEDF-32, FEE0-54, FEE1-06
+0CA6Dh 21ECCB                           LD        HL,FLDO        ; FLdo ....  np. 7654  FEDF-54 FEE0-76
+0CA70h CDD401                           CALL      PRINT
+0CA73h 44                               DEFB      44H
+0CA74h D7                               RST       10H
+0CA75h 40                               DEFB      40H
+0CA76h 3ECC                             LD        A,L2+12        ; tu pocz. wysw. pobieranego adresu "do"
+0CA78h D3E8                             OUT       (INSTR),A
+0CA7Ah 76                               HALT      
+0CA7Bh 21D7CC                           LD        HL,RAM_DO      ; "do"
+0CA7Eh CD18C9                           CALL      WYS_TEKST
+0CA81h 3ECF                             LD        A,L2+15
+0CA83h 32FDFE                           LD        (POZ_WYS),A
+0CA86h            ZAP22:                          
+0CA86h 76                               HALT      
+0CA87h CDDFC4                           CALL      POB_ADR        ; pobiera adres
+0CA8Ah 3ACDFE                           LD        A,(BUF_ADR)    ; jesli wcisnieto tylko 0
+0CA8Dh FE00                             CP        0
+0CA8Fh 2009                             JR        NZ,ZAP23       ; wcisnieto inna niz 0
+0CA91h 3EC6                             LD        A,L2+6
+0CA93h D3E8                             OUT       (INSTR),A      ; ustaw kursor
+0CA95h 76                               HALT      
+0CA96h 3E30                             LD        A,30H          ; "0"
+0CA98h D3E9                             OUT       (DANA),A
+0CA9Ah            ZAP23:                          
+0CA9Ah 3AD1FE                           LD        A,(BUF_ADR+4)
+0CA9Dh E60F                             AND       0FH
+0CA9Fh FE08                             CP        8              ;2 - dla SST39010/max 1.FFFF/, 4-SST29020 /max 3.FFFF, 8-SST29040 max 7.FFFF
+0CAA1h D8                               RET       C              ; zap2
+0CAA2h                                                           ; adres >1FFFF - /SST29010/lub >3FFF lub > 7FFFF  = ERROR
+0CAA2h 21230A                           LD        HL,KO3         ; "ERROR"
+0CAA5h CDD401                           CALL      PRINT
+0CAA8h 50                               DEFB      50H
+0CAA9h CDC9C4                           CALL      OP_100MS
+0CAACh 0A                               DEFB      10             ; opozn. ok. 1 sek
+0CAADh D7                               RST       10H            ; D7 czysc wysw. CA
+0CAAEh 50                               DEFB      50H
+0CAAFh AF                               XOR       A              ; CY=0  ret
+0CAB0h C9                               RET       
+0CAB1h                                            
+0CAB1h            END_PROGR:                                     ; koniec obszaru z programami
+0CAB1h 3E94                             LD        A,L3
+0CAB3h D3E8                             OUT       (INSTR),A
+0CAB5h 21D1CD                           LD        HL,KON_PR
+0CAB8h CD18C9                           CALL      WYS_TEKST
+0CABBh 210ECC                           LD        HL,END_WR
+0CABEh CDD401                           CALL      PRINT
+0CAC1h 30                               DEFB      30H
+0CAC2h CF                               RST       8              ; CF czekaj na klawisz
+0CAC3h C3C9C5                           JP        Z5
+0CAC6h                                            
+0CAC6h            SST_B_KEY:                                     ; odblokowanie flash (SST39SF040) wg ZEGAR
+0CAC6h E5                               PUSH      HL             ; nie stosujemy pollingu
+0CAC7h D5                               PUSH      DE             ; ani innych sztuczek - mierzymy czas
+0CAC8h F5                               PUSH      AF             ; 4 * 11 cykli /rozkazy PUSH/
+0CAC9h C5                               PUSH      BC             ; zapis do Flash Tbp MAX 20 us
+0CACAh 0609                             LD        B,9            ; wait 170 * 0.125us (8 MHz > 20 us)
+0CACCh            OP4:                                           ; czekamy na koniec zapisu poprzedniego bajtu
+0CACCh 10FE                             DJNZ      OP4            ; 9*13 taktow = 117
+0CACEh C1                               POP       BC             ; 10
+0CACFh 3E55                             LD        A,55H          ;        ; 7 taktow
+0CAD1h 215575                           LD        HL,ADR5        ; adres 10 taktow
+0CAD4h 36AA                             LD        (HL),0AAH      ; 1. cykl zapisu -  10 taktow
+0CAD6h 11AA7A                           LD        DE,ADRA        ; adres  10
+0CAD9h 12                               LD        (DE),A         ; 2. cykl zap.   7 taktow
+0CADAh F1                               POP       AF             ; 10
+0CADBh D1                               POP       DE             ; 10
+0CADCh 36A0                             LD        (HL),0A0H      ; 3.  cykl zapisu - 10 taktow - klucz
+0CADEh E1                               POP       HL             ; 10
+0CADFh C9                               RET                      ; 10 taktow ; razem ok. 255 taktow - 63,75 us
+0CAE0h                                                           ; ===========
+0CAE0h            WYSW_KOM_1:                                    ; wyswietl komunikaty po uruchomieniu programu
+0CAE0h 3E80                             LD        A,L1
+0CAE2h CD0FC9                           CALL      BUSY
+0CAE5h D3E8                             OUT       (INSTR),A
+0CAE7h 2118CD                           LD        HL,CA_EE2      ; "ZAP-ODCZ PROG FLASH"
+0CAEAh CD18C9                           CALL      WYS_TEKST      ; i przeskocz na nastepna linie LCD
+0CAEDh C9                               RET       
+0CAEEh                                            
+0CAEEh            SPR_SEKTFF:                                    ; czy wolne sektory
+0CAEEh 0600                             LD        B,0
+0CAF0h 2AC7FE                           LD        HL,(DL_ZAP)
+0CAF3h 11FF0F                           LD        DE,0FFFH
+0CAF6h            S_FF:                           
+0CAF6h ED52                             SBC       HL,DE
+0CAF8h 04                               INC       B              ; ilosc potrzebnych sektorow
+0CAF9h 30FB                             JR        NC,S_FF
+0CAFBh C5                               PUSH      BC             ; B = ilosc potrzebnych sektorow do zapisu obszaru
+0CAFCh                                                           ; odworz pierwszy sektor wg adresu zapisu do FLASH
+0CAFCh 21D1FE                           LD        HL,BUF_ADR+4
+0CAFFh 56                               LD        D,(HL)
+0CB00h 2B                               DEC       HL
+0CB01h 7E                               LD        A,(HL)
+0CB02h E6F0                             AND       0F0H           ; usun mlodsze bity
+0CB04h 82                               ADD       A,D            ; pierwszy sektor zapisu
+0CB05h 0F                               RRCA                     ; na prawo
+0CB06h 0F                               RRCA      
+0CB07h 0F                               RRCA      
+0CB08h 0F                               RRCA      
+0CB09h 5F                               LD        E,A            ; zapamietanie nr /poczatkowego sektora/
+0CB0Ah 4F                               LD        C,A
+0CB0Bh            S_FF1:                          
+0CB0Bh 32FD5F                           LD        (SEKT),A       ; ustaw sektor
+0CB0Eh 32C4FE                           LD        (SEKT_P),A     ; **
+0CB11h FD7700                           LD        (IY),A         ; IY = SEKT_P = FDE4
+0CB14h 210060                           LD        HL,FL
+0CB17h 16FF                             LD        D,0FFH
+0CB19h            S_FF2:                          
+0CB19h 7E                               LD        A,(HL)
+0CB1Ah BA                               CP        D
+0CB1Bh F5                               PUSH      AF
+0CB1Ch 23                               INC       HL
+0CB1Dh 7C                               LD        A,H
+0CB1Eh FE70                             CP        70H
+0CB20h 2805                             JR        Z,S_FF3        ; nastepny sektor
+0CB22h F1                               POP       AF
+0CB23h 201E                             JR        NZ,S_FF4
+0CB25h 18F2                             JR        S_FF2
+0CB27h            S_FF3:                          
+0CB27h F1                               POP       AF
+0CB28h FD3400                           INC       (IY)           ; przeskok na nastepny sektor
+0CB2Bh FD7E00                           LD        A,(IY)
+0CB2Eh 32FD5F                           LD        (SEKT),A       ; ustawienie adresu FLASH
+0CB31h 32C4FE                           LD        (SEKT_P),A     ;**
+0CB34h 10D5                             DJNZ      S_FF1          ; zmniejsz il. sektorow do sprawdzenia i sprawdz nastepny
+0CB36h                                                           ; sektory sprawdzone. wroc na sektor poczatkowy wpisu, wg pobranego adresu
+0CB36h FD7100                           LD        (IY),C
+0CB39h 79                               LD        A,C
+0CB3Ah 32FD5F                           LD        (SEKT),A
+0CB3Dh 32C4FE                           LD        (SEKT_P),A     ; **
+0CB40h C1                               POP       BC             ; jesli wszystko OK
+0CB41h AF                               XOR       A              ; zeruj A , znak ze wszystkie bajty w sektorze = FF
+0CB42h C9                               RET                      ; powrot
+0CB43h                                            
+0CB43h            S_FF4:                                         ; sektor  nie jest pusty
+0CB43h 2113CC                           LD        HL,SEKT_Z      ; sec.no FrE"
+0CB46h CDD401                           CALL      PRINT
+0CB49h 80                               DEFB      80H
+0CB4Ah 210CCE                           LD        HL,SEKT_NOF    ; "SEKTOR ZAJETY"
+0CB4Dh 3ED4                             LD        A,L4
+0CB4Fh D3E8                             OUT       (INSTR),A
+0CB51h CD0FC9                           CALL      BUSY
+0CB54h CD18C9                           CALL      WYS_TEKST      ; max 20 znakow
+0CB57h 212BCE                           LD        HL,SEKT_KAS    ; "DO KASOW OD "
+0CB5Ah 3E94                             LD        A,L3
+0CB5Ch CD0FC9                           CALL      BUSY
+0CB5Fh D3E8                             OUT       (INSTR),A
+0CB61h CD0FC9                           CALL      BUSY
+0CB64h CD18C9                           CALL      WYS_TEKST
+0CB67h 7B                               LD        A,E
+0CB68h CD0FC9                           CALL      BUSY
+0CB6Bh CD55C9                           CALL      WYSW_A         ; poczatkowy sektor do kasowania
+0CB6Eh 215ECE                           LD        HL,_IL         ; " IL"
+0CB71h CD18C9                           CALL      WYS_TEKST
+0CB74h C1                               POP       BC             ; w B ile trzeba skasowac sektorow
+0CB75h 78                               LD        A,B
+0CB76h CD55C9                           CALL      WYSW_A
+0CB79h CF                               RST       8
+0CB7Ah CD81CB                           CALL      SZUK_WOL
+0CB7Dh CF                               RST       8              ; CF
+0CB7Eh C3DDC0                           JP        WYB_SEKT
+0CB81h                                                           ;=========
+0CB81h            SZUK_WOL:                                      ; pokaz adres gdzie zaczynaja sie FF FF FF ...
+0CB81h CD79C2                           CALL      SUMA_K         ; rej. HL wskazuje FD
+0CB84h 23                               INC       HL
+0CB85h 23                               INC       HL
+0CB86h 23                               INC       HL
+0CB87h E5                               PUSH      HL
+0CB88h 3ED4                             LD        A,L4
+0CB8Ah D3E8                             OUT       (INSTR),A
+0CB8Ch 2162CE                           LD        HL,_WOL
+0CB8Fh CD18C9                           CALL      WYS_TEKST
+0CB92h 76                               HALT      
+0CB93h 3EE3                             LD        A,L4+15
+0CB95h D3E8                             OUT       (INSTR),A
+0CB97h E1                               POP       HL
+0CB98h CD31C9                           CALL      WYS_ADR_LCD    ; wysw. rej. HL
+0CB9Bh 3EE2                             LD        A,L4+14
+0CB9Dh 76                               HALT      
+0CB9Eh D3E8                             OUT       (INSTR),A
+0CBA0h FD7E00                           LD        A,(IY)
+0CBA3h CD55C9                           CALL      WYSW_A         ; sektor 0 - 7F
+0CBA6h E7                               RST       20H
+0CBA7h 40                               DEFB      40H
+0CBA8h CF                               RST       8              ; CF
+0CBA9h C9                               RET       
+0CBAAh                                                           ;===
+0CBAAh                                            
+0CBAAh            CLR_OB:                                        ; "zerowanie" / FF/ obszaru do wpisywania odczytanych numerow programu
+0CBAAh 0663                             LD        B,99           ; max il. programow - 99 , tyle przyjalem
+0CBACh 2130FE                           LD        HL,PR_CA       ; FE40h
+0CBAFh 3EFF                             LD        A,0FFH
+0CBB1h            PR1:                            
+0CBB1h 77                               LD        (HL),A
+0CBB2h 23                               INC       HL
+0CBB3h 10FC                             DJNZ      PR1
+0CBB5h C9                               RET       
+0CBB6h            SZUK_NUMER:                     
+0CBB6h CDEEC1                           CALL      SPR12A         ;XOR A ; A = 0 zaczynamy od sektora 0
+0CBB9h 0130FE                           LD        BC,PR_CA       ; tu zapisuj /RAM CA80/ odczytane numery programow
+0CBBCh            Z11:                            
+0CBBCh 11E4FD                           LD        DE,MAR_PR      ;w DE marker pocz. programu /po FD E4 jest nr programu/
+0CBBFh CDC3CB                           CALL      SZUK_WNR       ; szukaj wolny numer programu, wpisz odczyt. numery do RAM CA80
+0CBC2h C9                               RET       
+0CBC3h            SZUK_WNR:                       
+0CBC3h CD9EC6                           CALL      SZUK_MAR       ; szukaj markera
+0CBC6h                                                           ; znaleziono marker pocz. programu - FD E4
+0CBC6h 7E                               LD        A,(HL)         ; jesli po FD E4 jest FF FF - koniec obszaru z programami
+0CBC7h FEFF                             CP        0FFH           ; koniec programow
+0CBC9h C8                               RET       Z              ; powrot po napotkaniu ostatniego programu
+0CBCAh 02                               LD        (BC),A         ; wpis do RAM CA80
+0CBCBh 03                               INC       BC
+0CBCCh 18F5                             JR        SZUK_WNR
+0CBCEh                                            
+0CBCEh            SPR_NR:                                        ;rej. A - nr programu - czy podany numer programu juz wykorzystany
+0CBCEh FEFE                             CP        0FEH           ; nr zabroniony, po FD E4 FE oznacza koniec programów w EEPROM I2C
+0CBD0h C8                               RET       Z
+0CBD1h FEFF                             CP        0FFH           ; nr zabroniony , po Fd E4 FF oznacza "pusty obszar" - wypelniony FF
+0CBD3h C8                               RET       Z
+0CBD4h 016400                           LD        BC,64H         ; max il. programów  99     ; jesli nie to przepisz program do EEPROM
+0CBD7h 2130FE                           LD        HL,PR_CA       ; pocz. obszaru szukania numer programu w RAM
+0CBDAh EDB1                             CPIR                     ; szukaj
+0CBDCh C9                               RET                      ;Z=0 -> numer juz wykorzystany, Z = 1 -> nie znaleziono wsrod wpisanych -OK, jest wolny, przepisz program do EEPROM
+0CBDDh                                            
+0CBDDh                                                           ; teksty na CA80
+0CBDDh 39775CDEFF CA_OD:                DEFB      39H,77H,5CH,0DEH,255; napis "CAod."
+0CBE2h 39775EDCFF CA_DO:                DEFB      39H,77H,5EH,0DCH,255; "CAdo."
+0CBE7h 71385C5EFF FLOD:                 DEFB      71H,38H,5CH,5EH,255; "FLod" - 0FFh koniec tekstu
+0CBECh 71385E5CFF FLDO:                 DEFB      71H,38H,5EH,5CH,255;
+0CBF1h 54D06D7958 NR_SECT:              DEFB      54H,0D0H,6DH,79H,58H,31H,255; "nr.sect" - 0FFh koniec tekstu
+0CBF8h 795050FF   ER_1:                 DEFB      79H,50H,50H,255; "ERR"
+0CBFCh 7950776D79 ER_OK:                DEFB      79H,50H,77H,6DH,79H,0; "ERASE"
+0CC02h 5C78FF     EE_OK:                DEFB      5CH,78H,255    ; "OK:
+0CC05h 5B77F37138 ZAP_39SF:             DEFB      5BH,77H,0F3H,71H,38H,0F7H,4FH,6FH,255; "ZAP.FLA.39" na CA
+0CC0Eh 007954DEFF END_WR:               DEFB      0,79H,54H,0DEH,255; tekst "End" dla ca80
+0CC13h 6D79D854DC SEKT_Z:               DEFB      6DH,79H,0D8H,54H,0DCH,71H,50H,0F9H,255; "sec.no.Fre"
+0CC1Ch 7138776D74 FLASH2:               DEFB      71H,38H,77H,6DH,74H,8,5BH,255; "FLASH_2"
+0CC24h 545073505C NR_PROG:              DEFB      54H,50H,73H,50H,5CH,0BDH,255; "nrProg. " na CA
+0CC2Bh 7950D07138 ERR_FL:               DEFB      79H,50H,0D0H,71H,38H,77H,6DH,74H,255; "Err.Flash" na CA80
+0CC34h 6D79D87950 SEKT_ERR:             DEFB      6DH,79H,0D8H,79H,50H,50H,5CH,50H,255
+0CC3Dh 6D9CFF     SUMA:                 DEFB      6DH,9CH,255    ; "Su." 6Dh, 1Ch, 54h, 0F7h,255 ; "Suma"
+0CC40h                                                           ;su_NOK:   defb 6Dh, 1Ch, 54h, 0F7h, 54h,0DCh, 5Ch, 78h, 255 ; "suma. no. oK"
+0CC40h 5B77730054 ZAP_NOK:              DEFB      5BH,77H,73H,0,54H,0DCH,5CH,78H,255; "ZAP. NO.OK
+0CC49h 5B7773066D ZAP_OK:               DEFB      5BH,77H,73H,6,6DH,0,5CH,78H,255; "ZAPIS OK"
+0CC52h 54DCFF     SU_NOK:               DEFB      54H,0DCH,255   ; "no."
+0CC55h 5450715079 NR_FR:                DEFB      54H,50H,71H,50H,79H,0F9H,255; "nrFree" na CA
+0CC5Ch 545C715079 NR_NF:                DEFB      54H,5CH,71H,50H,79H,0F9H,255; "noFree" na CA
+0CC63h                                                           ; tekst na LCD
+0CC63h DDE2                             DEFB      0DDH,0E2H      ; marker nazwy programu
+0CC65h 20464C325F ZAP_SST:              DEFM      " FL2_x39.OBSZ_5000",255
+0CC78h 20204B4153 ERASE_FL:             DEFM      "  KASOWA",1,"  FLASH ?  ",255
+0CC8Dh 4B4C41572E KLAW_C:               DEFM      "KLAW. C  CA",3,"A PAMI",2,1,255; WSZYSTKO", 255
+0CCA2h 4A45535445 KLAW_C1:              DEFM      "JESTE",6," PEWIEN ? E OK",255
+0CCB7h 4B4C41572E KLAW_2:               DEFM      "KLAW. 2 SEKT nr 0-7F",255
+0CCCCh 52414D6F64 RAM_OD:               DEFM      "RAMod:    ",255; 5x spacja, gdy bledny adres, skasowanie cyfr na LCD
+0CCD7h 646F3AFF   RAM_DO:               DEFM      "do:",255
+0CCDBh 464C5F6F64 FL_OD:                DEFM      "FL_od:     ",255; 5x spacj, jesli bedzie blad pobierania
+0CCE7h 7A61706973 DLUG:                 DEFM      "zapis przekr. FDFF",255
+0CCFAh 494C2E2042 DLUG1:                DEFM      "IL. BAJT",5,"W ",255; ilosc bajtow
+0CD06h 706F707261 POP_ADR:              DEFM      "popraw ADR > 8000",255
+0CD18h                                                           ;CA_EE2:   defm "ZAP-ODCZ PROG  FLASH" ;,255 ;
+0CD18h 302D4B4153 CA_EE2:               DEFM      "0-KASUJ  1-WOLNY NR ";"3-suma kontrol FLASH" ;,255 ;     w L1
+0CD2Ch 342D5A4150 KL_3:                 DEFM      "4-ZAPIS 5-SZUK PROGR"; w L3
+0CD40h 322D50525A KL_1:                 DEFM      "2-PRZEGL 3-SUMA KONT";,255 ; w L2
+0CD54h 362D4F4443 KL_0:                 DEFM      "6-ODCZ  7-POZYCJA PR",255; w L4
+0CD69h 504F44414A SEKT_WYB:             DEFM      "PODAJ NR SEKTORA",255
+0CD7Ah 6B61734F44 KASOD:                DEFM      "kasOD:",255
+0CD81h 504F545749 POTW:                 DEFM      "POTWIERD",7," KL. = !!!",255
+0CD95h 5A41504953 ZAP_PROGR:            DEFM      "ZAPIS PROG [nr] kl E",255
+0CDAAh 5A41504953 ZAP_OBSZ:             DEFM      "ZAPIS OBSZARU  kl 7",255
+0CDBEh 504F44414A KON_PR2:              DEFM      "PODAJ NR PROGRAMU ",255
+0CDD1h 4B4F4E4945 KON_PR:               DEFM      "KONIEC PROGRAM",5,"W",255;..M" defb 5 "W"
+0CDE2h 50525A4547 PRZEG:                DEFM      "PRZEG. FLASH SST39xx",255
+0CDF7h 4B4F4E4945 END_WR1:              DEFM      "KONIEC ZAPISU FLASH ",255
+0CE0Ch 53454B544F SEKT_NOF:             DEFM      "SEKTOR ZAJ",2,"TY !",255
+0CE1Ch 4B4153554A USUN_SEKT:            DEFM      "KASUJ SEKTOR ?",255
+0CE2Bh 444F204B41 SEKT_KAS:             DEFM      "DO KASOW OD ",255
+0CE38h 454E442D6E PR_END:               DEFM      "END-nrPROG lub .lub=",255; na LCD
+0CE4Dh 204B4F4E49 KON_SEK:              DEFM      " KONIEC SEKTOROW",255
+0CE5Eh 20494CFF   _IL:                  DEFM      " IL",255
+0CE62h 574F4C4E59 _WOL:                 DEFM      "WOLNY OBSZ od ",255
+0CE71h 2020535A55 FIND:                 DEFM      "  SZUKAM KONCA",255
+0CE80h 2050524F47 FIND2:                DEFM      " PROGRAMOW W EEPROM",255
+0CE94h 5049455257 NR_1WOL:              DEFM      "PIERWSZY WOLNY NR ",255
+0CEA7h 204E554D45 NR_NF1:               DEFM      " NUMER ZAJETY",255
+0CEB5h 5A4E414C45 ILE_PRO:              DEFM      "ZNALEZIONO ",255
+0CEC1h 535A554B20 SZU_DL:               DEFM      "SZUK DLUG PROGRAMU",255
+0CED4h 646C756720 DL_PR:                DEFM      "dlug ",255
+0CEDAh 464C206F64 FLA:                  DEFM      "FL od-do",255
+0CEE3h 50524F4752 CA_DL:                DEFM      "PROGRAM CA ",255;
+0CEEFh 4B4C204634 WP_SU_KO:             DEFM      "KL F4/W - WPISZ SUME",255
+0CF04h 53554D4120 SUMA_OD:              DEFM      "SUMA 0-",255
+0CF0Ch 5A41504953 ZAPISANA:             DEFM      "ZAPISANA ",255
+0CF16h                                            
+0CF16h            SPR_ZAP_CA:                                    ; obl. sume kontrolna z CA
+0CF16h 010000                           LD        BC,0
+0CF19h 2AC5FE                           LD        HL,(R_OD)      ; poczatek w RAM
+0CF1Ch ED5BC9FE                         LD        DE,(R_DO)      ; koniec w RAM
+0CF20h DD210000                         LD        IX,0
+0CF24h            LICZ_SU:                        
+0CF24h 4E                               LD        C,(HL)
+0CF25h DD09                             ADD       IX,BC
+0CF27h CD3B02                           CALL      HILO
+0CF2Ah 30F8                             JR        NC,LICZ_SU
+0CF2Ch DD22D4FE                         LD        (SU_CA),IX     ; zapamietanie
+0CF30h C9                               RET       
+0CF31h                                                           ;spr_za_FL:    ; teraz obl. sume kontr. z FLASH
+0CF31h DD2ACFFE                         LD        IX,(BUF_ADR+2) ; adres w pam. FLASH
+0CF35h DDE5                             PUSH      IX             ;     np. adr. 12345-> FEDF 45, FEE0 23 FEE1 01 /poczatek sekt. 1
+0CF37h E1                               POP       HL             ;     np. adr. 2345 -> FEDF 45, FEE0 23, FEE1 00 / poczatek sekt 0
+0CF38h                                                           ; rej. H - 23, L - 45
+0CF38h 22C0FE                           LD        (FL_DANE),HL   ; przechowanie, FED0-45, FED1-23
+0CF3Bh            SPR1:                           
+0CF3Bh CD92C4                           CALL      SET_SEKT       ; ustaw sektor i adres na podstawie adresu zapisu do FLASH
+0CF3Eh 210000                           LD        HL,0           ;
+0CF41h AF                               XOR       A
+0CF42h 47                               LD        B,A            ; zerowanie B
+0CF43h ED5BC7FE                         LD        DE,(DL_ZAP)
+0CF47h 00                               NOP                      ;?? czy inc DE ; to nie HILO, dlatego +1
+0CF48h            LICZ1A:                         
+0CF48h DD4E00                           LD        C,(IX)
+0CF4Bh 09                               ADD       HL,BC
+0CF4Ch 1B                               DEC       DE
+0CF4Dh 7B                               LD        A,E
+0CF4Eh B2                               OR        D
+0CF4Fh 280D                             JR        Z,LICZ1B
+0CF51h DD23                             INC       IX
+0CF53h DD7C                             LD        A,IXH
+0CF55h FE70                             CP        70H
+0CF57h 20EF                             JR        NZ,LICZ1A      ; sumuj dalej
+0CF59h CC75C4                           CALL      Z,ZW_SEKT      ; zwieksz sektor
+0CF5Ch 18EA                             JR        LICZ1A
+0CF5Eh            LICZ1B:                         
+0CF5Eh                                                           ;koniec liczenia sumy
+0CF5Eh ED4BD4FE                         LD        BC,(SU_CA)     ; suma z RAM
+0CF62h                                                           ; suma z EEprom w HL
+0CF62h ED42                             SBC       HL,BC
+0CF64h F5                               PUSH      AF
+0CF65h 200C                             JR        NZ,SU_NO
+0CF67h 2149CC                           LD        HL,ZAP_OK      ; napis "OK" na CA80
+0CF6Ah            SU1:                            
+0CF6Ah CDD401                           CALL      PRINT
+0CF6Dh 80                               DEFB      80H
+0CF6Eh CF                               RST       8              ; CF
+0CF6Fh D7                               RST       10H            ; D7 czysc wysw. CA80
+0CF70h 20                               DEFB      20H
+0CF71h F1                               POP       AF             ; 0 - wszystko OK, zapis poprawny
+0CF72h C9                               RET       
+0CF73h                                                           ; sumy niezgodne
+0CF73h            SU_NO:                          
+0CF73h 2140CC                           LD        HL,ZAP_NOK
+0CF76h 18F2                             JR        SU1
+0CF78h                                                           ;======
