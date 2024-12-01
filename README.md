@@ -1,1 +1,1 @@
-w tym dziale mojego repozytorium będę umiszczał moje programy, które pisałemdo CA80
+w tym dziale mojego repozytorium będę umieszczał moje programy, które pisałem do CA80
