@@ -1,0 +1,835 @@
+00000h                                                           ; kalendarz wieczny od 1.01.0001 / nie bylo roku 0000 !!/
+00000h                                                           ; uwzgledniajacy zmiane kalendarza na gregorianksi - brak dni 5-14.10.1582 - 10 dni
+00000h                                                           ; date wpisujemy: DDMMRRR i wciskamy "="
+00000h                                                           ; klawisz A - oblicznie ilosci dni pomiedzy dwiema datami
+00000h                                                           ; klawisz C - obliczanie dnia tygodnia - po uruchomieniu rpogramu jestesmy w zlec. A;
+00000h            PRINT:                EQU       01D4H          ; wyœwietla tekst wg (HL), + PWyœw CD D4 01 44, po ostatnim zanku musi byc FF
+00000h            PARAM:                EQU       01F4H          ; pobiera bajty do hl, podaæ PWYS
+00000h            TABM:                 EQU       32DH           ; tabela ograniczen miesiecy CA80
+00000h            CSTS:                 EQU       0FFC3H         ; pobiera znak z klawiatury /flaga C/
+00000h            COM:                  EQU       01ABH          ; wyœw. zawartosc rej. C, podac PWYS
+00000h            CI:                   EQU       0FFC6H         ; czekanie na puszczenie klawisza a potem na wcisniecie
+00000h            CIM:                  EQU       184H           ; jak CSTS
+00000h            HILO:                 EQU       023BH
+00000h            L1:                   EQU       80H            ; pocz. 1. linii LCD
+00000h            L2:                   EQU       0C0H           ; pocz. 2. linii
+00000h            L3:                   EQU       94H            ; pocz. 3 linii
+00000h            L4:                   EQU       0D4H           ; pocz. 4. linii
+00000h            CYF0:                 EQU       0FFF7H         ;wyœw. cyfry na pozycji 0 wyœwietlacza CA80
+00000h            CYF1:                 EQU       0FFF8H         ;wyœw. cyfry na pozycji 1
+00000h            CYF2:                 EQU       0FFF9H
+00000h            CYF3:                 EQU       0FFFAH
+00000h            CYF4:                 EQU       0FFFBH
+00000h            CYF5:                 EQU       0FFFCH
+00000h            CYF6:                 EQU       0FFFDH
+00000h            CYF7:                 EQU       0FFFEH
+00000h            BUFX:                 EQU       0FE10H         ; bufor X
+00000h            BUFY:                 EQU       0FE1AH
+00000h            BUFZ:                 EQU       0FE3AH
+00000h            CLR_BUF:              EQU       0CA0H          ; zerowanie bufora
+00000h            CLR_BUFX:             EQU       0E2CH          ; zerowanie bufora X /j.w +ld hl, FE10
+00000h            MNOZ:                 EQU       0E09H          ; operacja mno?enia bufor?w bufX=bufX*bufY
+00000h            DODAJ:                EQU       0DB0H          ; operacja dodawania bufor?w j.w.
+00000h            KAS_BUFOR:            EQU       0E2CH          ; kas. bufora  do obliczeñ (podprogr.z kalkulatora)
+00000h            WPIS_BUF:             EQU       0C57H          ; wpis liczby do bufora
+00000h            WYS_BUF:              EQU       0D41H          ; wyœwietla bufor, podprogram z kalkulatora CA88, do zam_16_na_10
+00000h                                            
+00000h                                            
+00000h                                  ORG       0D000H
+0D000h                                            
+0D000h                                                           ; kalendarz wieczny
+0D000h                                                           ;lata podzielne przez 4, ale nie przez 100 beda przestepne, z wyjatkiem
+0D000h                                                           ; tych podzielnych przez 400 (lata 1600, 2000, 2400 itd beda w kalendarzu
+0D000h                                                           ;gregorianskim przestepne, a 1700, 1800, 1900, 2100 itd nie).
+0D000h                                            
+0D000h            KAL_START:                      
+0D000h 3166FF                           LD        SP,0FF66H
+0D003h 21F7D3                           LD        HL,CIEE        ; wlacz obsluge klaw. "G"
+0D006h 22C7FF                           LD        (CI+1),HL
+0D009h D7                               RST       10H            ; D7 80
+0D00Ah 80                               DEFB      80H
+0D00Bh 2102D4                           LD        HL,POD_DATE    ; "data." tekst na ca80
+0D00Eh CDD401                           CALL      PRINT
+0D011h 42                               DEFB      42H            ; PWYS
+0D012h CDD5D0                           CALL      POB_DATE       ;  pobranie liczb /daty/ DDmmRRRR
+0D015h D7                               RST       10H
+0D016h 80                               DEFB      80H
+0D017h 3EFF                             LD        A,0FFH
+0D019h 324AFE                           LD        (0FE4AH),A
+0D01Ch CDDDD1                           CALL      WPIS_DATY      ;
+0D01Fh 38DF                             JR        C,KAL_START    ; data nie istnieje
+0D021h 21BED1                           LD        HL,WZORZEC_DATY
+0D024h 1100FE                           LD        DE,0FE00H
+0D027h 010900                           LD        BC,9           ; tyle znakow ma wzorzec daty
+0D02Ah EDB0                             LDIR                     ; przesun
+0D02Ch 2A0BFE                           LD        HL,(0FE0BH)    ; szukane lata
+0D02Fh                                            
+0D02Fh            OBLICZ_DZIEN:                   
+0D02Fh CD2FD2                           CALL      SPR_POL_DATY   ; czy szukana data <= od 4.10.1582 czy >= od 15.10.1582
+0D032h CD41D3                           CALL      WYSW_CZEKAJ    ; na CA80
+0D035h CD61D2                           CALL      SPRAWDZ_ZGODNOSC;  data= data  + 1
+0D038h CD25D3                           CALL      KAL3           ; sprawdz czy rok przestepny
+0D03Bh            KAL5:                           
+0D03Bh D7                               RST       10H
+0D03Ch 80                               DEFB      80H
+0D03Dh 2121D4                           LD        HL,PN          ; poczatek nazwy dni
+0D040h 3A00FE                           LD        A,(0FE00H)
+0D043h 3D                               DEC       A
+0D044h 5F                               LD        E,A
+0D045h 1600                             LD        D,0
+0D047h 19                               ADD       HL,DE          ; 7 x bo 7. dni tygodnia
+0D048h 19                               ADD       HL,DE
+0D049h 19                               ADD       HL,DE
+0D04Ah 19                               ADD       HL,DE
+0D04Bh 19                               ADD       HL,DE
+0D04Ch 19                               ADD       HL,DE
+0D04Dh 19                               ADD       HL,DE
+0D04Eh CDD401                           CALL      PRINT          ;wyswietla tekst wg (HL)
+0D051h 61                               DEFB      61H            ; PWYS
+0D052h 0603                             LD        B,3
+0D054h CD78D4                           CALL      OPOZ_SZUK      ; opoznienie
+0D057h 3822                             JR        C,POB_ZLEC     ; wcisnieto jakis klawisz
+0D059h 1102FE                           LD        DE,0FE02H      ; wysw. dzien i miesiac
+0D05Ch 1A                               LD        A,(DE)
+0D05Dh 6F                               LD        L,A
+0D05Eh 1B                               DEC       DE
+0D05Fh 1A                               LD        A,(DE)
+0D060h 67                               LD        H,A
+0D061h E7                               RST       20H            ; E7 44 wysw. rej HL
+0D062h 44                               DEFB      44H
+0D063h 2A03FE                           LD        HL,(0FE03H)    ; rok
+0D066h E7                               RST       20H
+0D067h 40                               DEFB      40H
+0D068h 21FBFF                           LD        HL,0FFFBH      ; cyfra wyswietlacza
+0D06Bh CBFE                             SET       7,(HL)
+0D06Dh 21FDFF                           LD        HL,0FFFDH
+0D070h CBFE                             SET       7,(HL)
+0D072h 0603                             LD        B,3
+0D074h CD78D4                           CALL      OPOZ_SZUK      ; opoznienie
+0D077h 3802                             JR        C,POB_ZLEC
+0D079h 18C0                             JR        KAL5
+0D07Bh                                            
+0D07Bh            POB_ZLEC:                                      ; jesli A- obl. ilosci dni, C-obl. dzien tygodnia
+0D07Bh CDC3FF                           CALL      CSTS
+0D07Eh 30FB                             JR        NC,POB_ZLEC
+0D080h FE0A                             CP        0AH            ; klawisz A
+0D082h 2807                             JR        Z,OBLICZ_IL_DNI;
+0D084h FE0C                             CP        0CH            ; klawisz C
+0D086h CA00D0                           JP        Z,KAL_START
+0D089h 18F0                             JR        POB_ZLEC
+0D08Bh                                            
+0D08Bh            OBLICZ_IL_DNI:                                 ; obliczanie ilosci dni miedzy dwiema datami
+0D08Bh D7                               RST       10H
+0D08Ch 80                               DEFB      80H
+0D08Dh 3166FF                           LD        SP,0FF66H
+0D090h            KAL8:                           
+0D090h 215ED4                           LD        HL,POD_DATE_OD ; tekst "data.od." na CA80
+0D093h CDD401                           CALL      PRINT
+0D096h 71                               DEFB      71H
+0D097h CDD5D0                           CALL      POB_DATE       ; pobranie daty "od"
+0D09Ah CDDDD1                           CALL      WPIS_DATY
+0D09Dh 38F1                             JR        C,KAL8         ; bledna data
+0D09Fh 2109FE                           LD        HL,0FE09H      ; pobrana data FE09-dzien, 0A-m-c, 0B-lata, 0C- stulecie
+0D0A2h 111AFE                           LD        DE,0FE1AH      ; przesun do tego obszaru
+0D0A5h 010400                           LD        BC,4           ; ile bajtow przesunac
+0D0A8h EDB0                             LDIR      
+0D0AAh            KAL82:                          
+0D0AAh D7                               RST       10H
+0D0ABh 80                               DEFB      80H
+0D0ACh            KAL_82_1:                       
+0D0ACh 2166D4                           LD        HL,POD_DATE_DO ; tekst "data.do." na CA80
+0D0AFh CDD401                           CALL      PRINT
+0D0B2h 71                               DEFB      71H
+0D0B3h CDD5D0                           CALL      POB_DATE       ; pobiera date "do", wpis od FE1A-dzien, 1B-m-c, 1C-
+0D0B6h CDDDD1                           CALL      WPIS_DATY      ;wpis od FE1A-dzien, 1B-m-c, 1C-rok/lata, 1D-stulecie
+0D0B9h 38EF                             JR        C,KAL82        ; bledna data
+0D0BBh CD64D1                           CALL      POR_DATY       ; porownuje daty, jesli od < do , to OK , jesli od > do,
+0D0BEh 210100                           LD        HL,1           ; zamienia miejscami w buforze
+0D0C1h E5                               PUSH      HL
+0D0C2h E5                               PUSH      HL
+0D0C3h FDE1                             POP       IY             ; po kazdym zwiekszeniu dnia IY=IY+1
+0D0C5h DDE1                             POP       IX
+0D0C7h DD2B                             DEC       IX             ; ix=0, jesli il. dni > ffff, to ix=ix+1
+0D0C9h CD41D3                           CALL      WYSW_CZEKAJ    ;
+0D0CCh CD61D2                           CALL      SPRAWDZ_ZGODNOSC; dodaje dzien do dnia, az daty sie zgodza
+0D0CFh CD76D3                           CALL      WYSW_DNI
+0D0D2h C37BD0                           JP        POB_ZLEC
+0D0D5h                                            
+0D0D5h            POB_DATE:                                      ; pobranie daty do bufora FE02-FE05
+0D0D5h                                                           ; FE02-lata, 03-stulecie, 04-miesiac, 05-dzien
+0D0D5h                                                           ; czysc wysw. ca80   ; dat 28.VI.1987 w buf. zapisana tak 87 19 06 28
+0D0D5h 2100FE                           LD        HL,0FE00H      ; potem data dublowana do FE09-28, 0A-07, 0B-87, 0C-19
+0D0D8h CDA00C                           CALL      CLR_BUF        ; zerowanie obszaru / w CA88 kalkulator
+0D0DBh CDEBD0                           CALL      POB_KL_DAT
+0D0DEh 38F5                             JR        C,POB_DATE     ; blednie wpisano date
+0D0E0h                                            
+0D0E0h            POB_DATE1:                      
+0D0E0h CDEBD0                           CALL      POB_KL_DAT     ;
+0D0E3h 38F0                             JR        C,POB_DATE
+0D0E5h 28F9                             JR        Z,POB_DATE1
+0D0E7h FE0A                             CP        0AH
+0D0E9h 38F5                             JR        C,POB_DATE1
+0D0EBh                                            
+0D0EBh            POB_KL_DAT:                                    ; pobranie
+0D0EBh CDC6FF                           CALL      CI             ; cd C6FF
+0D0EEh CD26D1                           CALL      TEST_KL        ; tylko cyfry 0-9
+0D0F1h D8                               RET       C
+0D0F2h 2005                             JR        NZ,POB_KL_DAT1
+0D0F4h 7E                               LD        A,(HL)
+0D0F5h B7                               OR        A
+0D0F6h C0                               RET       NZ
+0D0F7h 18F2                             JR        POB_KL_DAT
+0D0F9h                                            
+0D0F9h            POB_KL_DAT1:                                   ;
+0D0F9h B7                               OR        A
+0D0FAh 4F                               LD        C,A            ; przechowanie pobranej liczby
+0D0FBh 200E                             JR        NZ,POB_KL_DAT2
+0D0FDh 7E                               LD        A,(HL)
+0D0FEh B7                               OR        A
+0D0FFh 200A                             JR        NZ,POB_KL_DAT2
+0D101h D7                               RST       10H
+0D102h 80                               DEFB      80H
+0D103h 0E00                             LD        C,0
+0D105h CDE001                           CALL      1E0H
+0D108h 80                               DEFB      80H
+0D109h 18E0                             JR        POB_KL_DAT
+0D10Bh                                            
+0D10Bh            POB_KL_DAT2:                    
+0D10Bh 7E                               LD        A,(HL)
+0D10Ch FE0F                             CP        0FH            ; max il. cyfr pobranych, ale licza sie tylko ostatnie 7 lub 8
+0D10Eh 30DB                             JR        NC,POB_KL_DAT
+0D110h 79                               LD        A,C
+0D111h FE0A                             CP        0AH            ; tylko cyfry 0-9 !
+0D113h 30D6                             JR        NC,POB_KL_DAT
+0D115h 7E                               LD        A,(HL)
+0D116h B7                               OR        A
+0D117h 2002                             JR        NZ,POB_KL_DAT3
+0D119h D7                               RST       10H
+0D11Ah 80                               DEFB      80H
+0D11Bh                                            
+0D11Bh            POB_KL_DAT3:                                   ;
+0D11Bh CDE001                           CALL      1E0H
+0D11Eh 80                               DEFB      80H
+0D11Fh E5                               PUSH      HL
+0D120h CD560C                           CALL      0C56H          ; wpis pobranej cyfry (rej. C) do bufora
+0D123h E1                               POP       HL
+0D124h 18C5                             JR        POB_KL_DAT
+0D126h                                            
+0D126h            TEST_KL:                                       ;
+0D126h F5                               PUSH      AF
+0D127h E5                               PUSH      HL
+0D128h                                            
+0D128h            YY:                                            ; dobijanie kropek do wyswietlanej daty, bardziej czytelne
+0D128h 21FBFF                           LD        HL,CYF4
+0D12Bh CBBE                             RES       7,(HL)         ; kasowanie "." na wysw. ca80
+0D12Dh 21FDFF                           LD        HL,CYF6
+0D130h CBBE                             RES       7,(HL)
+0D132h            XX:                             
+0D132h 21FAFF                           LD        HL,CYF3
+0D135h CBFE                             SET       7,(HL)         ; dodanie "."
+0D137h 21FCFF                           LD        HL,CYF5
+0D13Ah CBFE                             SET       7,(HL)
+0D13Ch            ZZ:                             
+0D13Ch E1                               POP       HL
+0D13Dh F1                               POP       AF
+0D13Eh FE10                             CP        10H            ; czy "G" - nowa data
+0D140h 37                               SCF       
+0D141h FE12                             CP        12H            ; klawisz "="
+0D143h 2806                             JR        Z,PRZEPISZ_DATE
+0D145h B7                               OR        A
+0D146h C0                               RET       NZ
+0D147h 0E00                             LD        C,0H
+0D149h 0C                               INC       C
+0D14Ah C9                               RET       
+0D14Bh                                            
+0D14Bh            PRZEPISZ_DATE:                                 ;dublowanie daty w RAM, do dalszych obliczen
+0D14Bh D7                               RST       10H            ; D7 80
+0D14Ch 80                               DEFB      80H            ;
+0D14Dh 2105FE                           LD        HL,0FE05H
+0D150h 1109FE                           LD        DE,0FE09H
+0D153h 7E                               LD        A,(HL)
+0D154h 12                               LD        (DE),A
+0D155h 2B                               DEC       HL
+0D156h 13                               INC       DE
+0D157h 7E                               LD        A,(HL)
+0D158h 12                               LD        (DE),A
+0D159h 2A02FE                           LD        HL,(0FE02H)
+0D15Ch 220BFE                           LD        (0FE0BH),HL
+0D15Fh 33                               INC       SP
+0D160h 33                               INC       SP
+0D161h 33                               INC       SP
+0D162h 33                               INC       SP
+0D163h C9                               RET       
+0D164h                                            
+0D164h            POR_DATY:                                      ; porownanie dat;  data2: 9.VIII.1992    data1: 15.XII.1987
+0D164h B7                               OR        A              ;                FE09 09               FE1A 15
+0D165h 2A0BFE                           LD        HL,(0FE0BH)    ; rok            FE0A 08               FF1B 12
+0D168h ED5B1CFE                         LD        DE,(0FE1CH)    ; rok            FE0B 92               FF1C 87
+0D16Ch ED52                             SBC       HL,DE          ;                FE0C 19               FF1D 19
+0D16Eh 2804                             JR        Z,PRZEP_2
+0D170h 301C                             JR        NC,PRZEP_1     ;       bufor 1- do obl. il. dni: FE01 15
+0D172h 1826                             JR        ZAM_DATY       ;          jak i dnia tygodnia       FE02 12
+0D174h                                                           ;                FE03 87
+0D174h            PRZEP_2:                                       ;                FE04 19
+0D174h B7                               OR        A
+0D175h 2A1AFE                           LD        HL,(0FE1AH)    ; miesiac i dzien - data "do" przy obl. il. dni
+0D178h E5                               PUSH      HL
+0D179h D1                               POP       DE
+0D17Ah 2A09FE                           LD        HL,(0FE09H)    ; miesiac i dzien -  data "do" przy obl. il.dni
+0D17Dh ED52                             SBC       HL,DE
+0D17Fh 3819                             JR        C,ZAM_DATY
+0D181h 200B                             JR        NZ,PRZEP_1     ; daty rozne
+0D183h                                                           ; daty takie same
+0D183h 216ED4                           LD        HL,DATA_       ; "daty =" takie same
+0D186h CDD401                           CALL      PRINT
+0D189h 62                               DEFB      62H
+0D18Ah CF                               RST       8              ; CF
+0D18Bh C38BD0                           JP        OBLICZ_IL_DNI
+0D18Eh                                            
+0D18Eh            PRZEP_1:                        
+0D18Eh 211AFE                           LD        HL,0FE1AH      ; skad
+0D191h 1101FE                           LD        DE,0FE01H      ; dokad             bufor 2       FE09 09
+0D194h            PRZEP_11:                                      ;                 FE0A 08
+0D194h 010400                           LD        BC,4           ; ile komorek                      FE0B 92
+0D197h EDB0                             LDIR                     ; przesun                          FE0C 19
+0D199h C9                               RET       
+0D19Ah                                            
+0D19Ah            ZAM_DATY:                                      ; zamiana dat miejscami w buforach
+0D19Ah 2109FE                           LD        HL,0FE09H      ; skad      bufor 2
+0D19Dh 1101FE                           LD        DE,0FE01H      ; dokad     bufor 1
+0D1A0h 010400                           LD        BC,4           ; ile komorek
+0D1A3h EDB0                             LDIR                     ; przesun
+0D1A5h 211AFE                           LD        HL,0FE1AH      ; skad
+0D1A8h 1109FE                           LD        DE,0FE09H      ; dokad
+0D1ABh 18E7                             JR        PRZEP_11
+0D1ADh                                            
+0D1ADh            PRZES_TEKST:                                   ;  wyswietlanie tekstu i przesuw /ca80
+0D1ADh 2210FE                           LD        (0FE10H),HL    ; adr. pocz. tekstu -przechowanie
+0D1B0h            PRZ_TEK1:                                      ; DE - koniec przesuwanego tekstu
+0D1B0h CDECD3                           CALL      PRZES          ;
+0D1B3h D8                               RET       C              ; powrot z podprogramu
+0D1B4h CD3B02                           CALL      HILO
+0D1B7h 30F7                             JR        NC,PRZ_TEK1
+0D1B9h                                                           ; koniec tekstu
+0D1B9h 2A10FE                           LD        HL,(0FE10H)    ; odtworzenie HL, pocz. tekstu
+0D1BCh 18F2                             JR        PRZ_TEK1
+0D1BEh                                            
+0D1BEh            WZORZEC_DATY:                                  ;
+0D1BEh 0601010100                       DEFB      6,1,1,1,0      ; 01.01.0001, 6-sobota
+0D1C3h 05108215                         DEFB      5,10H,82H,15H  ; 05.10.1582
+0D1C7h            WZOR_DATY_2:                    
+0D1C7h 0515108215                       DEFB      05,15H,10H,82H,15H; piatek, 15.10.1582
+0D1CCh                                            
+0D1CCh            SPR_DATE_1582:                                 ;
+0D1CCh B7                               OR        A
+0D1CDh ED5B07FE                         LD        DE,(0FE07H)
+0D1D1h ED52                             SBC       HL,DE
+0D1D3h C9                               RET       
+0D1D4h                                            
+0D1D4h            ZW_DATY_10_1582:                               ;  zwiekszenie daty w pazdzierniku 1582 r
+0D1D4h 3C                               INC       A
+0D1D5h 27                               DAA       
+0D1D6h B9                               CP        C
+0D1D7h 37                               SCF       
+0D1D8h 3F                               CCF       
+0D1D9h CA23D2                           JP        Z,WYS_NIE_MA_DATY;
+0D1DCh C9                               RET       
+0D1DDh                                            
+0D1DDh            WPIS_DATY:                                     ;  ;czy podana data jest  wpisana prawidlowo
+0D1DDh 2A02FE                           LD        HL,(0FE02H)    ; rok >= 1 , mies. 1-12, luty 29 dni tylko jesli rok przestepny
+0D1E0h 010100                           LD        BC,1           ; n.e. rozpoczela sie od 1.I.0001/sobota/, 5-14.10.1582 zmiana kalendarza
+0D1E3h ED42                             SBC       HL,BC
+0D1E5h 383C                             JR        C,WYS_NIE_MA_DATY; wswietl "nie ma takiej daty"
+0D1E7h 210AFE                           LD        HL,0FE0AH      ; miesiac
+0D1EAh 7E                               LD        A,(HL)
+0D1EBh FE13                             CP        13H            ; rok ma 12. miesiecy
+0D1EDh 3034                             JR        NC,WYS_NIE_MA_DATY
+0D1EFh FE00                             CP        0
+0D1F1h 2830                             JR        Z,WYS_NIE_MA_DATY
+0D1F3h 112D03                           LD        DE,TABM        ; poczatek ograniczenia dni miesiaca /w CA80/
+0D1F6h CDC6D2                           CALL      CZY_LUTY       ;  czy luty i rok przestepny
+0D1F9h 3D                               DEC       A
+0D1FAh FE00                             CP        0
+0D1FCh 2825                             JR        Z,WYS_NIE_MA_DATY
+0D1FEh BA                               CP        D
+0D1FFh 3022                             JR        NC,WYS_NIE_MA_DATY
+0D201h B7                               OR        A              ; CY=0
+0D202h 2A02FE                           LD        HL,(0FE02H)    ; szukane lata
+0D205h 018215                           LD        BC,1582H
+0D208h ED42                             SBC       HL,BC
+0D20Ah 2802                             JR        Z,CZY_5_14     ; czy lezy miedzy 5-14.X.1582 - daty nie ma
+0D20Ch B7                               OR        A
+0D20Dh C9                               RET       
+0D20Eh                                            
+0D20Eh            CZY_5_14:                                      ; nie ma dni pomiedzy 5-14.10.1582
+0D20Eh 2A04FE                           LD        HL,(0FE04H)    ; szuk. data: dzien i miesiac
+0D211h 011005                           LD        BC,510H        ; 5.X /5. pazdziernik / nie ma  dni 5.10-14.10.1582
+0D214h ED42                             SBC       HL,BC
+0D216h 3002                             JR        NC,WPIS_WROC   ; data < 5.10.1582
+0D218h B7                               OR        A              ; zeruj wskaznik CY, data < 5.10.1582, powrot po wyzerowaniu wskaznika CY
+0D219h C9                               RET       
+0D21Ah                                            
+0D21Ah            WPIS_WROC:                      
+0D21Ah 2A04FE                           LD        HL,(0FE04H)    ; szukany dzien i miesiac
+0D21Dh 011015                           LD        BC,1510H       ; 15. pazdziernika
+0D220h ED42                             SBC       HL,BC
+0D222h D0                               RET       NC             ; data >= 15.10.1582
+0D223h                                                           ; data miedzy 5 - 15.10.1582 , blad - nie ma dni pomiedzy 5-15.10.1582
+0D223h                                            
+0D223h            WYS_NIE_MA_DATY:                               ;  obsluga bledu daty na ca80
+0D223h 1120D4                           LD        DE,NIE_MA+12H  ; koniec komunikatu
+0D226h            N_M_D1:                         
+0D226h 210ED4                           LD        HL,NIE_MA      ; pocz. komunikatu
+0D229h            N_M_D2:                         
+0D229h CDADD1                           CALL      PRZES_TEKST    ; wysw. komunikat /przesuw tekstu/ na ca80 i czeka na nacisniecie klawisza
+0D22Ch C300D0                           JP        KAL_START
+0D22Fh                                            
+0D22Fh            SPR_POL_DATY:                                  ;  czy data jest do 4.10.1582 czy od 15.10.1582
+0D22Fh B7                               OR        A
+0D230h 2A0BFE                           LD        HL,(0FE0BH)
+0D233h 118215                           LD        DE,1582H       ; rok w ktorym "zabrano" 10 dni 5-14 pazdz.
+0D236h ED52                             SBC       HL,DE
+0D238h D8                               RET       C              ; rok < niz 1582
+0D239h 7C                               LD        A,H
+0D23Ah 8D                               ADC       A,L
+0D23Bh 200D                             JR        NZ,WZOR_2      ; rok > niz 1582
+0D23Dh 010510                           LD        BC,1005H       ; 5.X
+0D240h 210AFE                           LD        HL,0FE0AH
+0D243h 7E                               LD        A,(HL)
+0D244h B8                               CP        B
+0D245h D8                               RET       C              ; < niz pazdziernik
+0D246h 2B                               DEC       HL             ; dzien
+0D247h 7E                               LD        A,(HL)
+0D248h B9                               CP        C
+0D249h D8                               RET       C              ; < niz 5
+0D24Ah            WZOR_2:                                        ;
+0D24Ah 21C7D1                           LD        HL,WZOR_DATY_2 ; ld hl, 8228 ; 15.X.1582
+0D24Dh 1100FE                           LD        DE,0FE00H
+0D250h 010500                           LD        BC,5
+0D253h EDB0                             LDIR      
+0D255h C9                               RET       
+0D256h                                            
+0D256h            ZW_DZ_TYG:                                     ;  zwiekszenie dnia tygodnia o nastepny
+0D256h 2100FE                           LD        HL,0FE00H
+0D259h 34                               INC       (HL)
+0D25Ah 7E                               LD        A,(HL)
+0D25Bh FE08                             CP        8              ; czy nastepny po niedzieli
+0D25Dh C0                               RET       NZ
+0D25Eh 3601                             LD        (HL),1         ; poniedzialek
+0D260h C9                               RET       
+0D261h                                            
+0D261h            SPRAWDZ_ZGODNOSC:               
+0D261h 1109FE                           LD        DE,0FE09H      ; dzien poszukiwany
+0D264h 2101FE                           LD        HL,0FE01H
+0D267h CD84D2                           CALL      POR_ZGOD       ;
+0D26Ah 20F5                             JR        NZ,SPRAWDZ_ZGODNOSC
+0D26Ch 23                               INC       HL             ; miesiac
+0D26Dh 13                               INC       DE
+0D26Eh CD84D2                           CALL      POR_ZGOD
+0D271h 20EE                             JR        NZ,SPRAWDZ_ZGODNOSC
+0D273h 23                               INC       HL             ; rok
+0D274h 13                               INC       DE
+0D275h CD84D2                           CALL      POR_ZGOD
+0D278h 20E7                             JR        NZ,SPRAWDZ_ZGODNOSC
+0D27Ah 23                               INC       HL
+0D27Bh 13                               INC       DE             ; setki lat
+0D27Ch            SPR_ZG1:                        
+0D27Ch 1A                               LD        A,(DE)
+0D27Dh BE                               CP        (HL)
+0D27Eh C8                               RET       Z
+0D27Fh CD01D3                           CALL      ZW_STULECIA    ;
+0D282h 18F8                             JR        SPR_ZG1
+0D284h                                            
+0D284h            POR_ZGOD:                                      ;
+0D284h 1A                               LD        A,(DE)
+0D285h BE                               CP        (HL)
+0D286h C48AD2                           CALL      NZ,ZW_DATE     ;
+0D289h C9                               RET       
+0D28Ah                                            
+0D28Ah            ZW_DATE:                                       ; zwiekszenie dnia miesiaca o jeden dzien
+0D28Ah FD23                             INC       IY             ; potrzebne do oblicz. ilosci dni pomiedzy datami
+0D28Ch F5                               PUSH      AF
+0D28Dh D9                               EXX       
+0D28Eh 112D03                           LD        DE,TABM        ; tabela dni w m-cu - od 32Dh/CA80/ max. ilosci dni w miesiacu
+0D291h CD56D2                           CALL      ZW_DZ_TYG
+0D294h 23                               INC       HL             ; wskazuje dzien
+0D295h 23                               INC       HL             ; wskazuje miesiac
+0D296h 7E                               LD        A,(HL)
+0D297h CDC6D2                           CALL      CZY_LUTY       ;
+0D29Ah BA                               CP        D
+0D29Bh 381B                             JR        C,ZW_2
+0D29Dh 3E01                             LD        A,1
+0D29Fh 77                               LD        (HL),A
+0D2A0h 23                               INC       HL
+0D2A1h 7E                               LD        A,(HL)
+0D2A2h 3C                               INC       A
+0D2A3h 27                               DAA       
+0D2A4h FE13                             CP        13H
+0D2A6h 3810                             JR        C,ZW_2
+0D2A8h 3E01                             LD        A,1
+0D2AAh 77                               LD        (HL),A
+0D2ABh 23                               INC       HL
+0D2ACh 7E                               LD        A,(HL)
+0D2ADh 3C                               INC       A
+0D2AEh 27                               DAA       
+0D2AFh 77                               LD        (HL),A
+0D2B0h FE00                             CP        0
+0D2B2h 2008                             JR        NZ,ZW_3
+0D2B4h 23                               INC       HL
+0D2B5h 7E                               LD        A,(HL)
+0D2B6h 3C                               INC       A
+0D2B7h 27                               DAA       
+0D2B8h            ZW_2:                           
+0D2B8h 77                               LD        (HL),A
+0D2B9h CD5CD3                           CALL      SPR_DNI_5_14   ; jesli 5.10.1582 to zwieksz na 15.10.1582 - przy obliczniu ilosci dni
+0D2BCh            ZW_3:                           
+0D2BCh D9                               EXX       
+0D2BDh F1                               POP       AF
+0D2BEh C9                               RET       
+0D2BFh                                            
+0D2BFh            SPR_ROK_PRZEST:                                ;  sprawdza czy rok przestepny
+0D2BFh 0604                             LD        B,4            ; rok przestepny co 4. lata
+0D2C1h            SPR_R1:                         
+0D2C1h 80                               ADD       A,B
+0D2C2h 27                               DAA       
+0D2C3h 30FC                             JR        NC,SPR_R1
+0D2C5h C9                               RET       
+0D2C6h                                            
+0D2C6h            CZY_LUTY:                                      ; spr. czy luty i rok przestepny
+0D2C6h FE0A                             CP        0AH
+0D2C8h 3802                             JR        C,CZY_LUTY_1
+0D2CAh D606                             SUB       6
+0D2CCh            CZY_LUTY_1:                     
+0D2CCh 3D                               DEC       A
+0D2CDh 83                               ADD       A,E
+0D2CEh 5F                               LD        E,A
+0D2CFh 1A                               LD        A,(DE)
+0D2D0h 57                               LD        D,A
+0D2D1h E5                               PUSH      HL
+0D2D2h 7E                               LD        A,(HL)
+0D2D3h FE02                             CP        2              ; czy luty
+0D2D5h 2019                             JR        NZ,CZY_LUTY_2
+0D2D7h 23                               INC       HL
+0D2D8h 7E                               LD        A,(HL)
+0D2D9h CDBFD2                           CALL      SPR_ROK_PRZEST
+0D2DCh FE00                             CP        0
+0D2DEh 2010                             JR        NZ,CZY_LUTY_2
+0D2E0h 7E                               LD        A,(HL)
+0D2E1h FE00                             CP        0
+0D2E3h 2006                             JR        NZ,CZY_LUTY_4
+0D2E5h 23                               INC       HL
+0D2E6h 7E                               LD        A,(HL)
+0D2E7h FE17                             CP        17H
+0D2E9h 300C                             JR        NC,CZY_LUTY_3
+0D2EBh                                            
+0D2EBh            CZY_LUTY_4:                     
+0D2EBh B7                               OR        A
+0D2ECh 7A                               LD        A,D
+0D2EDh 3C                               INC       A
+0D2EEh 27                               DAA       
+0D2EFh 57                               LD        D,A
+0D2F0h                                            
+0D2F0h            CZY_LUTY_2:                     
+0D2F0h E1                               POP       HL
+0D2F1h B7                               OR        A
+0D2F2h 2B                               DEC       HL             ; dzien
+0D2F3h 7E                               LD        A,(HL)
+0D2F4h 3C                               INC       A
+0D2F5h 27                               DAA       
+0D2F6h C9                               RET       
+0D2F7h                                            
+0D2F7h            CZY_LUTY_3:                     
+0D2F7h FE20                             CP        20H            ; czy rok 2000
+0D2F9h 28F0                             JR        Z,CZY_LUTY_4
+0D2FBh FE24                             CP        24H
+0D2FDh 28EC                             JR        Z,CZY_LUTY_4
+0D2FFh 18EF                             JR        CZY_LUTY_2
+0D301h                                            
+0D301h            ZW_STULECIA:                                   ;  zwieksz stulecie o 1
+0D301h CD49D3                           CALL      ZW_STULECIE    ;
+0D304h 77                               LD        (HL),A
+0D305h CD17D3                           CALL      ZM_DZ_TYG      ;
+0D308h 7E                               LD        A,(HL)
+0D309h FE16                             CP        16H
+0D30Bh D8                               RET       C              ; mniejsze niz 1600
+0D30Ch C8                               RET       Z
+0D30Dh FE20                             CP        20H
+0D30Fh C8                               RET       Z
+0D310h FE24                             CP        24H
+0D312h C8                               RET       Z
+0D313h CD17D3                           CALL      ZM_DZ_TYG      ;  dzien tygod - 1
+0D316h C9                               RET       
+0D317h                                            
+0D317h            ZM_DZ_TYG:                                     ; dzien tygodnia -1
+0D317h E5                               PUSH      HL
+0D318h 2100FE                           LD        HL,0FE00H
+0D31Bh 35                               DEC       (HL)
+0D31Ch 7E                               LD        A,(HL)
+0D31Dh FE00                             CP        0
+0D31Fh 2002                             JR        NZ,ZM_DZ_TYG_1
+0D321h 3607                             LD        (HL),7
+0D323h            ZM_DZ_TYG_1:                    
+0D323h E1                               POP       HL
+0D324h C9                               RET       
+0D325h                                            
+0D325h            KAL3:                                          ; sprawdz czy rok przestepny
+0D325h B7                               OR        A
+0D326h 2102FE                           LD        HL,0FE02H      ; miesiac
+0D329h 7E                               LD        A,(HL)
+0D32Ah FE03                             CP        3              ; czy marzec
+0D32Ch D0                               RET       NC             ; nie marzec
+0D32Dh 23                               INC       HL
+0D32Eh 7E                               LD        A,(HL)
+0D32Fh FE00                             CP        0
+0D331h C0                               RET       NZ
+0D332h 23                               INC       HL
+0D333h 7E                               LD        A,(HL)
+0D334h FE17                             CP        17H            ; czy rok 1700
+0D336h D8                               RET       C
+0D337h FE20                             CP        20H
+0D339h C8                               RET       Z
+0D33Ah FE24                             CP        24H
+0D33Ch C8                               RET       Z
+0D33Dh CD56D2                           CALL      ZW_DZ_TYG      ;zwieksz dzien tygodnia
+0D340h C9                               RET       
+0D341h                                            
+0D341h            WYSW_CZEKAJ:                                   ;
+0D341h 2107D4                           LD        HL,CZEKAJ
+0D344h CDD401                           CALL      PRINT          ; wyïswietla "czekaj"
+0D347h 61                               DEFB      61H
+0D348h C9                               RET       
+0D349h                                            
+0D349h            ZW_STULECIE:                                   ;  zwieksz setki lat o +1
+0D349h 01AC8E                           LD        BC,8EACH       ; 36524 dni w stuleciu (?)
+0D34Ch FD09                             ADD       IY,BC
+0D34Eh 3007                             JR        NC,NZW
+0D350h                                                           ; jesli il. dni > FFFFh to zwieksz IX - potrzebne do mnozenia
+0D350h B7                               OR        A
+0D351h DD7D                             LD        A,IXL          ;defb 0DDh  ;defb 7Dh ; ld a; ixL DD7D
+0D353h 3C                               INC       A
+0D354h 27                               DAA       
+0D355h DD6F                             LD        IXL,A          ;defb 0DDh   ;defb 6Fh ; ld ixL, a   dd 6F
+0D357h            NZW:                                           ; nie zwiekszaj ix, tylko setki lat
+0D357h B7                               OR        A
+0D358h 7E                               LD        A,(HL)
+0D359h 3C                               INC       A
+0D35Ah 27                               DAA       
+0D35Bh C9                               RET       
+0D35Ch                                            
+0D35Ch            SPR_DNI_5_14:                                  ; zwieksz. daty z 5.10.1582 na 15.10.1582 przy obl. dni
+0D35Ch 2A01FE                           LD        HL,(0FE01H)    ; zmiana kalendarza z julianskiego na gregorianski
+0D35Fh 110510                           LD        DE,1005H       ; 5.X    ; 4.X.1582/czwartek/, nastepny to 15.10.1582/piatek
+0D362h ED52                             SBC       HL,DE
+0D364h C0                               RET       NZ
+0D365h 2A03FE                           LD        HL,(0FE03H)
+0D368h 118215                           LD        DE,1582H
+0D36Bh ED52                             SBC       HL,DE
+0D36Dh C0                               RET       NZ
+0D36Eh 3E15                             LD        A,15H          ; 15-ty dzien pazdziernika
+0D370h 3201FE                           LD        (0FE01H),A
+0D373h FD2B                             DEC       IY
+0D375h C9                               RET       
+0D376h                                            
+0D376h            WYSW_DNI:                       
+0D376h CDD9D3                           CALL      PRZELICZ_DNI   ; WYJ: BUFX
+0D379h DD7D                             LD        A,IXL          ;defb 0ddh  ;defb 7dh ; dd 7d ld a, ixL - mlodszy bajt IX
+0D37Bh FE00                             CP        0
+0D37Dh 2004                             JR        NZ,WYSW_DNI1
+0D37Fh CDE4D3                           CALL      W_DNI1
+0D382h C9                               RET       
+0D383h                                            
+0D383h            WYSW_DNI1:                                     ; il. dni > od FFFFh
+0D383h D7                               RST       10H
+0D384h 80                               DEFB      80H            ; czysc wysw. ca80
+0D385h 213AFE                           LD        HL,BUFZ
+0D388h CDA00C                           CALL      CLR_BUF
+0D38Bh 2110FE                           LD        HL,BUFX
+0D38Eh 113AFE                           LD        DE,BUFZ
+0D391h 010500                           LD        BC,5H
+0D394h EDB0                             LDIR                     ; przesun/zapamietanie
+0D396h DD7D                             LD        A,IXL          ;defb 0ddh  ;defb 7dh ; dd 7d ld a, ixL - mlodszy. bajt IX
+0D398h 321CFE                           LD        (BUFY+2),A     ; wpis do bufY - mnoznik
+0D39Bh FE0A                             CP        0AH
+0D39Dh 3805                             JR        C,CYF_2        ; ile razy mnozyc przez 65536 /FFFFh/
+0D39Fh 210200                           LD        HL,2
+0D3A2h 1803                             JR        CYF_WP         ; wpisz cyfre do bufora
+0D3A4h            CYF_2:                          
+0D3A4h 210100                           LD        HL,1
+0D3A7h            CYF_WP:                         
+0D3A7h 221AFE                           LD        (BUFY),HL
+0D3AAh CD2C0E                           CALL      CLR_BUFX       ; zeruj bufor X
+0D3ADh 21F5D4                           LD        HL,STALA_FFFF
+0D3B0h 1110FE                           LD        DE,BUFX
+0D3B3h 010500                           LD        BC,5
+0D3B6h EDB0                             LDIR      
+0D3B8h                                                           ; mnozenie
+0D3B8h CD090E                           CALL      MNOZ           ; razy - bufX=bufX * bufY
+0D3BBh 211AFE                           LD        HL,BUFY
+0D3BEh CDA00C                           CALL      CLR_BUF
+0D3C1h 213AFE                           LD        HL,BUFZ
+0D3C4h 111AFE                           LD        DE,BUFY
+0D3C7h 010500                           LD        BC,5
+0D3CAh EDB0                             LDIR      
+0D3CCh CDB00D                           CALL      DODAJ          ; dodaj il. dni przelicz. z IY do bufora X
+0D3CFh 2110FE                           LD        HL,BUFX
+0D3D2h CD410D                           CALL      WYS_BUF        ; wysw. il. dni na ca80
+0D3D5h CDE4D3                           CALL      W_DNI1
+0D3D8h C9                               RET       
+0D3D9h                                            
+0D3D9h            PRZELICZ_DNI:                                  ; wysw. dni na ca80 i na lcd
+0D3D9h CD2C0E                           CALL      CLR_BUFX       ; czysc bufor X do obliczen il. dni
+0D3DCh FDE5                             PUSH      IY
+0D3DEh E1                               POP       HL             ; ilosc przezytych dni hexadecymalnie, max 65535, reszta mnoznik w IX
+0D3DFh 2B                               DEC       HL             ; gdyz np. od 1.01 do 3.01 sa dwa czy trzy dni przezyte? pierwszy drugi i trzeci dzien ?
+0D3E0h CD85D4                           CALL      PRZELICZ       ;  ilosc dni w postaci dziesietnej na ca80
+0D3E3h C9                               RET                      ;  w buforze  FE10-FE14
+0D3E4h                                            
+0D3E4h            W_DNI1:                                        ; wysw. "dn." na ca80 i il. dni na lcd
+0D3E4h 2175D4                           LD        HL,DN          ; "dn." przed iloscia dni na ca80
+0D3E7h CDD401                           CALL      PRINT          ; wysw. "dn." na CA80
+0D3EAh 26                               DEFB      26H            ; PWYSW
+0D3EBh C9                               RET       
+0D3ECh                                            
+0D3ECh            PRZES:                                         ; przesuwa tekst na wyœwietlaczu ca80, jesli wcis. jakis klawisz to wyjscie z procedury
+0D3ECh 4E                               LD        C,(HL)
+0D3EDh CDAB01                           CALL      COM            ; wyœwietla rej. C
+0D3F0h 80                               DEFB      80H            ; to jest parametr PWYœ 80
+0D3F1h 0601                             LD        B,1H           ; wartoœæ opóŸnienia
+0D3F3h CD78D4                           CALL      OPOZ_SZUK      ; tu ewentualne wyjsciej jesli wcisnieto jakis klaw.
+0D3F6h C9                               RET       
+0D3F7h                                            
+0D3F7h                                            
+0D3F7h            CIEE:                                          ; obsluga, gdy wcisniemy klawisz G - powrot na pocz. programu
+0D3F7h CD8401                           CALL      CIM            ;jak CD F3 FF
+0D3FAh F5                               PUSH      AF
+0D3FBh FE10                             CP        10H            ;Kod klaw. "G"
+0D3FDh CA00D0                           JP        Z,KAL_START
+0D400h F1                               POP       AF
+0D401h C9                               RET       
+0D402h                                            
+0D402h                                                           ;  teksty  na CA80
+0D402h            POD_DATE:                                      ; "data"
+0D402h 5E773177FF                       DEFB      5EH,77H,31H,77H,0FFH
+0D407h            CZEKAJ:                         
+0D407h 395B797877                       DEFB      39H,5BH,79H,78H,77H,0FH,0FFH; "czekaj
+0D40Eh            NIE_MA:                                        ; "nie ma takiej daty"
+0D40Eh 5430790054                       DEFB      54H,30H,79H,0H,54H,77H,0H,31H,77H,78H,30H,79H,0FH,0H
+0D41Ch 5E7731EE00                       DEFB      5EH,77H,31H,0EEH,0
+0D421h            PN:                                            ; poniedzia³ek
+0D421h 735C543079                       DEFB      73H,5CH,54H,30H,79H,5EH,0FFH
+0D428h            WT:                                            ; wtorek
+0D428h 3E315C5079                       DEFB      3EH,31H,5CH,50H,79H,78H,0FFH
+0D42Fh            SR:                                            ; œroda
+0D42Fh 6D505C5E77                       DEFB      6DH,50H,5CH,5EH,77H,0H,0FFH
+0D436h            CZW:                                           ; czwartek
+0D436h 395B1C7750                       DEFB      39H,5BH,1CH,77H,50H,31H,0FFH
+0D43Dh            PT:                                            ; pi¹tek
+0D43Dh 7330F73179                       DEFB      73H,30H,0F7H,31H,79H,78H,0FFH
+0D444h            SO:                                            ; sobota
+0D444h 6D5C7C5C31                       DEFB      6DH,5CH,7CH,5CH,31H,77H,0FFH
+0D44Bh            ND:                                            ; niedziela
+0D44Bh 3730795E5B                       DEFB      37H,30H,79H,5EH,5BH,30H,0FFH
+0D452h            OBL_IL_DNI:                                    ; "obl. ilosci dni"
+0D452h 5C7CB80438                       DEFB      5CH,7CH,0B8H,4,38H,5CH,6DH,58H,10H,5EH,54H,10H
+0D45Eh            POD_DATE_OD:                                   ; "data od."
+0D45Eh 5E77317700                       DEFB      5EH,77H,31H,77H,0,5CH,0DEH,0FFH
+0D466h            POD_DATE_DO:                                   ; "data do"
+0D466h 5E77317700                       DEFB      5EH,77H,31H,77H,0,5EH,5CH,0FFH
+0D46Eh 5E77317700 DATA_:                DEFB      5EH,77H,31H,77H,0,48H,255
+0D475h            DN:                                            ; "dn."
+0D475h 5ED4FF                           DEFB      5EH,0D4H,0FFH
+0D478h                                            
+0D478h            OPOZ_SZUK:                      
+0D478h E5                               PUSH      HL             ; i jesli wcisnieto jakis klawisz, wyjscie z procedury
+0D479h            OPOZ_SZUK1:                     
+0D479h CD0E1A                           CALL      1A0EH          ; opóŸnienie ok. 0,4 s
+0D47Ch CDC3FF                           CALL      CSTS           ; pobierz klawisz
+0D47Fh 3802                             JR        C,WYJ1
+0D481h 10F6                             DJNZ      OPOZ_SZUK1
+0D483h            WYJ1:                           
+0D483h E1                               POP       HL
+0D484h C9                               RET       
+0D485h                                            
+0D485h            PRZELICZ:                       
+0D485h 01F0D8                           LD        BC,0D8F0H      ; (-10.000), uzupe³nienie do 2 liczby 10.000
+0D488h CDE2D4                           CALL      ZAMIEN_16
+0D48Bh 0118FC                           LD        BC,0FC18H      ; (-1.000, uzupe³. do 2 liczby 1.000
+0D48Eh CDE2D4                           CALL      ZAMIEN_16
+0D491h 019CFF                           LD        BC,0FF9CH      ; (-100)
+0D494h CDE2D4                           CALL      ZAMIEN_16
+0D497h 01F6FF                           LD        BC,0FFF6H      ; (-10)
+0D49Ah CDE2D4                           CALL      ZAMIEN_16
+0D49Dh 7D                               LD        A,L
+0D49Eh 2110FE                           LD        HL,0FE10H      ; pocz¹tek bufora
+0D4A1h E5                               PUSH      HL
+0D4A2h CD570C                           CALL      WPIS_BUF
+0D4A5h CDADD4                           CALL      ILE_CYFR
+0D4A8h E1                               POP       HL
+0D4A9h CD410D                           CALL      WYS_BUF
+0D4ACh C9                               RET       
+0D4ADh                                            
+0D4ADh            ILE_CYFR:                                      ; sprawdza ile cyfr znaczacych w buforze
+0D4ADh 2110FE                           LD        HL,0FE10H
+0D4B0h E5                               PUSH      HL
+0D4B1h 2114FE                           LD        HL,0FE14H      ; 4. i 5. cyfra
+0D4B4h 7E                               LD        A,(HL)
+0D4B5h FE00                             CP        0
+0D4B7h 2802                             JR        Z,DAL
+0D4B9h 1817                             JR        CYFR_5
+0D4BBh            DAL:                            
+0D4BBh 2B                               DEC       HL
+0D4BCh 7E                               LD        A,(HL)
+0D4BDh FE00                             CP        0
+0D4BFh 2806                             JR        Z,DAL11
+0D4C1h FE10                             CP        10H            ; liczba 3. cyfrowa
+0D4C3h 3815                             JR        C,CYFRY_3
+0D4C5h 180F                             JR        CYFRY_4
+0D4C7h            DAL11:                          
+0D4C7h 2B                               DEC       HL
+0D4C8h 7E                               LD        A,(HL)
+0D4C9h FE10                             CP        10H
+0D4CBh 3011                             JR        NC,CYFRY_2     ; liczba 2. cyfrowa
+0D4CDh                                                           ; jedna cyfra
+0D4CDh 3E01                             LD        A,1
+0D4CFh                                            
+0D4CFh            POW_CYFR:                       
+0D4CFh E1                               POP       HL
+0D4D0h 77                               LD        (HL),A
+0D4D1h C9                               RET       
+0D4D2h            CYFR_5:                         
+0D4D2h 3E05                             LD        A,5
+0D4D4h 18F9                             JR        POW_CYFR
+0D4D6h            CYFRY_4:                        
+0D4D6h 3E04                             LD        A,4
+0D4D8h 18F5                             JR        POW_CYFR
+0D4DAh            CYFRY_3:                        
+0D4DAh 3E03                             LD        A,3
+0D4DCh 18F1                             JR        POW_CYFR
+0D4DEh            CYFRY_2:                        
+0D4DEh 3E02                             LD        A,2
+0D4E0h 18ED                             JR        POW_CYFR
+0D4E2h                                            
+0D4E2h            ZAMIEN_16:                                     ; zamiana liczby 16. na 10.
+0D4E2h AF                               XOR       A
+0D4E3h            ZAM_1:                          
+0D4E3h 5D                               LD        E,L
+0D4E4h 54                               LD        D,H
+0D4E5h 3C                               INC       A
+0D4E6h 09                               ADD       HL,BC
+0D4E7h 38FA                             JR        C,ZAM_1
+0D4E9h 3D                               DEC       A
+0D4EAh 6B                               LD        L,E
+0D4EBh 62                               LD        H,D
+0D4ECh E5                               PUSH      HL
+0D4EDh 2110FE                           LD        HL,0FE10H      ;pocz. bufora
+0D4F0h CD570C                           CALL      WPIS_BUF
+0D4F3h E1                               POP       HL
+0D4F4h C9                               RET       
+0D4F5h                                            
+0D4F5h 0501365506 STALA_FFFF:           DEFB      5,1,36H,55H,6  ; 65536
+0D4FAh                                            
+0D4FAh DDE2                             DEFB      0DDH,0E2H
+0D4FCh 204B414C45                       DEFM      " KALENDARZ bezLcd",255; nazwa
+0D50Eh                                            
+0D50Eh                                            
+0D50Eh                                            
